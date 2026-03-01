@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Collab's - JourneyVerse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        /* Specific Styles to match the provided image for My Journeys */
+
+        /* Layout Fixes */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+            background-color: #15202b;
+        }
+
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+            background-color: #1a2634;
+            /* Slightly lighter than sidebar */
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            /* Align to top to handle multi-line text */
+            margin-bottom: 30px;
+        }
+
+        .header-text h1 {
+            color: white;
+            margin: 0 0 5px 0;
+            font-size: 1.8rem;
+        }
+
+        .header-text p {
+            color: #aebccc;
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        /* Card Customization for My Journeys */
+        .my-journey-card {
+            background-color: #1f3a52;
+            /* Match the dark card bg */
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-body-mj {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mj-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .mj-avatar {
+            width: 45px;
+            height: 45px;
+            background-color: #aebccc;
+            /* Placeholder grey */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: #2c3e50;
+        }
+
+        .mj-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .mj-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+        }
+
+        .mj-text h4 {
+            color: white;
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .mj-text .date {
+            color: #d1d1d1;
+            font-size: 0.9rem;
+            display: block;
+            margin: 2px 0;
+        }
+
+        .mj-text .desc {
+            color: #e0e0e0;
+            font-size: 1rem;
+        }
+
+        .mj-arrow-btn {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            /* Flex to center > */
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .card-footer-mj {
+            background-color: #d9d9d9;
+            /* Light grey footer from image */
+            padding: 10px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #000;
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: #1f3a52;
+            margin: 10% auto;
+            padding: 30px;
+            border: 1px solid #4facfe;
+            width: 50%;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            color: white;
+            position: relative;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: white;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="JourneyVerse Logo">
+            </div>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li><a href="{{ url_for('my_journeys') }}">My Journeys</a></li>
+                <li><a href="{{ url_for('pending_requests') }}">Pending Request</a></li>
+                <li class="active"><a href="{{ url_for('my_collabs') }}">My Collab's</a></li>
+                <li><a href="{{ url_for('notifications') }}">Notifications</a></li>
+                <li><a href="{{ url_for('logout') }}" class="logout-btn">Log Out</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header>
+                <div class="header-content">
+                    <div class="header-text">
+                        <h1>Hello {{ user_name or 'User' }},</h1>
+                        <p>Your Collaborations...</p>
+                    </div>
+                </div>
+            </header>
+
+            <div class="projects-list">
+                {% for journey in journeys %}
+                <div class="my-journey-card">
+                    <div class="card-body-mj">
+                        <div class="mj-info">
+                            <div class="mj-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="mj-text">
+                                <h4>{{ journey.project_name }}</h4>
+                                <span class="date">{{ journey.project_date_time.strftime('%Y-%m-%d %H:%M') }}</span>
+                                {% set words = journey.project_description.split() %}
+                                {% if words|length > 10 %}
+                                <span class="desc">
+                                    {{ words[:10]|join(' ') }}...
+                                    <a href="#" class="read-more-link" data-desc="{{ journey.project_description }}"
+                                        style="color: #4facfe;">Read More</a>
+                                </span>
+                                {% else %}
+                                <span class="desc">{{ journey.project_description }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <a href="{{ url_for('my_collab_detail', collab_id=journey.id) }}"
+                                class="mj-arrow-btn">&gt;</a>
+                        </div>
+                    </div>
+                    <div class="card-footer-mj">
+                        <span><i class="fas fa-heart"></i> {{ journey.likes }}</span>
+                        <span><i class="fas fa-comment"></i> {{ journey.comments }}</span>
+                        <span>
+                            <i class="fas fa-users"></i>
+                            {% set m_list = journey.members.split(',') if journey.members else [] %}
+                            {% set count = m_list|length %}
+                            {{ count }}
+                        </span>
+                    </div>
+                </div>
+                {% else %}
+                <p style="color: #aebccc;">You are not a member of any other projects yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Description Modal -->
+    <div id="descModal" class="modal">
+        <div class="modal-content">
+            <span class="close-desc"
+                style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+            <h2 style="margin-top: 0; margin-bottom: 20px;">Project Description</h2>
+            <p id="fullDescText" style="color: #e0e0e0; font-size: 1rem; line-height: 1.6;"></p>
+        </div>
+    </div>
+
+    <script>
+        // Get the description modal
+        var descModal = document.getElementById("descModal");
+        var fullDescText = document.getElementById("fullDescText");
+        var descSpan = document.querySelector(".close-desc");
+
+        // Close desc modal
+        if (descSpan) {
+            descSpan.onclick = function () {
+                descModal.style.display = "none";
+            }
+        }
+
+        // Handle Read More clicks
+        document.querySelectorAll('.read-more-link').forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                fullDescText.textContent = this.getAttribute('data-desc');
+                descModal.style.display = "block";
+            });
+        });
+
+        // When the user clicks anywhere outside of the modal, close it
+        window.onclick = function (event) {
+            if (event.target == descModal) {
+                descModal.style.display = "none";
+            }
+        }
+    </script>
+</body>
+
+</html>

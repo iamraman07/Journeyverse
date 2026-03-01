@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ journey.project_name }} - Collab Detail</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .like-btn-active {
+            color: red !important;
+        }
+
+        .like-btn-inactive {
+            color: #aebccc !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="JourneyVerse">
+            </div>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li><a href="{{ url_for('my_journeys') }}">My Journeys</a></li>
+                <li><a href="{{ url_for('pending_requests') }}">Pending Request</a></li>
+                <li><a href="{{ url_for('my_collabs') }}">My Collab's</a></li>
+                <li><a href="{{ url_for('notifications') }}">Notifications</a></li>
+                <li><a href="{{ url_for('logout') }}">Log Out</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content-area journey-page">
+
+            <div class="page-header-actions" style="margin-bottom: 20px;">
+                <a href="{{ url_for('my_collabs') }}" class="back-home-btn">&larr; Back to My Collab's</a>
+            </div>
+
+            <!-- Project Header Card -->
+            <div class="project-header-card">
+                <div class="header-content-wrapper"
+                    style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+
+                    <div class="header-main" style="display: flex; gap: 20px; align-items: flex-start; flex-grow: 1;">
+                        <!-- Profile Icon -->
+                        <div class="avatar-large"
+                            style="width: 70px; height: 70px; border-radius: 50%; overflow: hidden;  background-color: #2c3e50; border: 2px solid #aebccc;">
+                            <!-- Using generic icon as placeholder if no image, or default user image -->
+                            <img src="{{ url_for('static', filename='images/default_user.jpg') }}" alt="Project Icon"
+                                style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+
+                        <!-- Name & Description -->
+                        <div class="header-info">
+                            <h2 style="font-size: 1.3rem; margin: 0 0 5px 0; color: white;">{{ journey.project_name }}
+                            </h2>
+                            <span class="date-time"
+                                style="color: #aebccc; font-size: 0.9rem; margin-bottom: 10px; display: block;">{{
+                                journey.project_date_time.strftime('%Y-%m-%d %H:%M') }}</span>
+
+                            <p class="project-desc" style="color: #e0e0e0; font-size: 1rem; margin: 0;">
+                                {{ journey.project_description }}
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                    <!-- Social Actions -->
+                    <div class="header-stats">
+                        <span class="stat-item">
+                            <a href="{{ url_for('like_my_collab', collab_id=journey.id) }}"
+                                class="{% if is_liked %}like-btn-active{% else %}like-btn-inactive{% endif %}"
+                                style="text-decoration: none; margin-right: 5px;">
+                                <i class="fas fa-heart"></i>
+                            </a>
+                            <span class="count" id="likesBtn" style="cursor: pointer;">{{ likes_list|length }}</span>
+                        </span>
+                        <span class="stat-item" id="commentsBtn" style="cursor: pointer;">
+                            <i class="fas fa-comment"></i>
+                            <span class="count">{{ comments_list|length }}</span>
+                        </span>
+                        <span class="stat-item" id="membersBtn" style="cursor: pointer;">
+                            <i class="fas fa-users"></i>
+                            <span class="count">
+                                {{ members_list|length }}
+                            </span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Journey Timeline -->
+            <div class="journey-content">
+                <div class="journey-actions">
+                    <h3>Project Journey:</h3>
+                </div>
+
+                <div class="timeline-container">
+                    <div class="timeline-header-row">
+                        <div class="col-day">Day</div>
+                        <div class="col-content"></div>
+                    </div>
+
+                    {% for day_num, days_group in journey_days|groupby('day_number') %}
+                    <div class="timeline-row">
+                        <div class="day-indicator">
+                            <div class="day-circle">{{ day_num }}</div>
+                        </div>
+                        <div class="day-cards">
+                            {% for day_entry in days_group %}
+                            <div class="day-card">
+                                <div class="card-header">{{ day_entry.member_name }}</div>
+                                <div class="card-content">
+                                    {% set words = day_entry.description.split() %}
+                                    {% if words|length > 25 %}
+                                    <span class="desc-preview">
+                                        {{ words[:25]|join(' ') }}...
+                                        <a href="javascript:void(0)" class="read-more-link"
+                                            data-full-desc="{{ day_entry.description }}"
+                                            data-member="{{ day_entry.member_name }}">Read More.</a>
+                                    </span>
+                                    {% else %}
+                                    {{ day_entry.description }}
+                                    {% endif %}
+                                </div>
+                                <div class="card-action view-entry-btn" data-project="{{ journey.project_name }}"
+                                    data-member="{{ day_entry.member_name }}" data-desc="{{ day_entry.description }}">
+                                    View</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="no-journey" style="text-align: center; color: #aebccc; padding: 20px;">
+                        <p>No journey updates yet.</p>
+                    </div>
+                    {% endfor %}
+
+                </div>
+
+                <!-- Add Next Day Button -->
+                <button class="add-next-btn" style="
+                    background-color: #1f3a52;
+                    color: #fff;
+                    border: none;
+                    width: 100%;
+                    padding: 20px;
+                    font-size: 1.5rem;
+                    font-weight: 600;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    margin-top: 30px;
+                    transition: background 0.3s;
+                " onmouseover="this.style.backgroundColor='#2c3e50'"
+                    onmouseout="this.style.backgroundColor='#1f3a52'">Add Next Day Journey</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Read More / View Modal -->
+    <div id="readMoreModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <div id="modalHeaderSection">
+                <h2 id="modalProjectName" style="margin-top: 0; color: #4facfe;">{{ journey.project_name }}</h2>
+                <h3 id="modalMemberName" style="margin-top: 5px;">Member Name</h3>
+            </div>
+            <p id="modalDescription" style="margin-top: 15px; line-height: 1.6;">Full description goes here...</p>
+        </div>
+    </div>
+
+    <!-- Likes Modal -->
+    <div id="likesModal" class="modal">
+        <div class="modal-content social-modal">
+            <span class="close-btn close-likes">&times;</span>
+            <h3>Likes</h3>
+            <ul class="social-list">
+                {% for like in likes_list %}
+                <li>
+                    <i class="fas fa-user-circle"></i>
+                    <span>{{ like.user_name }}</span>
+                </li>
+                {% else %}
+                <li class="empty-state">No likes yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Comments Modal -->
+    <div id="commentsModal" class="modal">
+        <div class="modal-content social-modal">
+            <span class="close-btn close-comments">&times;</span>
+            <h3>Comments</h3>
+            <div class="comments-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+                {% for comment in comments_list %}
+                <div class="comment-item">
+                    <div class="comment-header">
+                        <i class="fas fa-user-circle"></i>
+                        <strong>{{ comment.user_name }}</strong>
+                        <span class="comment-date">{{ comment.created_at.strftime('%Y-%m-%d') }}</span>
+                    </div>
+                    <p class="comment-text">{{ comment.comment_text }}</p>
+                </div>
+                {% else %}
+                <p class="empty-state">No comments yet.</p>
+                {% endfor %}
+            </div>
+
+            <!-- Add Comment Form -->
+            <form action="{{ url_for('comment_my_collab', collab_id=journey.id) }}" method="POST"
+                style="border-top: 1px solid #4facfe; padding-top: 15px;">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" name="comment_text" placeholder="Add a comment..." required
+                        style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #4facfe; background: #2c3e50; color: white;">
+                    <button type="submit"
+                        style="background: #4facfe; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer;">
+                        Send
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Members Modal -->
+    <div id="membersModal" class="modal">
+        <div class="modal-content social-modal">
+            <span class="close-btn close-members">&times;</span>
+            <h3>Members</h3>
+            <ul class="social-list">
+                {% for member in members_list %}
+                <li style="justify-content: space-between;">
+                    <div style="display: flex; align-items: center;">
+                        <i class="fas fa-user-check" style="margin-right: 15px;"></i>
+                        <span>{{ member }}</span>
+                    </div>
+                    {% if member == admin_name %}
+                    <span
+                        style="font-size: 0.8rem; background: #4facfe; padding: 2px 8px; border-radius: 10px; color: white;">Admin</span>
+                    {% endif %}
+                </li>
+                {% else %}
+                <li class="empty-state">No members found.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const mainModal = document.getElementById("readMoreModal");
+            const mainClose = mainModal.querySelector(".close-btn");
+            const modalMember = document.getElementById("modalMemberName");
+            const modalDesc = document.getElementById("modalDescription");
+            const modalHeaderSection = document.getElementById("modalHeaderSection");
+            const modalProject = document.getElementById("modalProjectName");
+
+            // View Option
+            const viewButtons = document.querySelectorAll('.view-entry-btn');
+            viewButtons.forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const project = this.getAttribute('data-project');
+                    const member = this.getAttribute('data-member');
+                    const desc = this.getAttribute('data-desc');
+
+                    if (modalHeaderSection) modalHeaderSection.style.display = "block"; // Show header for View
+                    if (modalProject) modalProject.textContent = project;
+                    if (modalMember) modalMember.textContent = member;
+                    modalDesc.textContent = desc;
+
+                    mainModal.style.display = "block";
+                });
+            });
+
+            // Read More Option
+            document.querySelectorAll('.read-more-link').forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const desc = this.getAttribute('data-full-desc');
+                    const member = this.getAttribute('data-member');
+
+                    if (modalHeaderSection) modalHeaderSection.style.display = "block";
+                    if (modalProject) modalProject.style.display = "none"; // Hide project name
+                    if (modalMember) modalMember.textContent = member; // Show Member Name
+                    modalDesc.textContent = desc;
+
+                    mainModal.style.display = "block";
+                });
+            });
+
+            // Reset modal state on close/click
+            const resetModal = () => {
+                mainModal.style.display = "none";
+                if (modalProject) modalProject.style.display = "block"; // Reset visibility
+            };
+
+            mainClose.onclick = resetModal;
+
+            window.onclick = function (event) {
+                if (event.target == mainModal) resetModal();
+                if (event.target == likesModal) likesModal.style.display = "none";
+                if (event.target == commentsModal) commentsModal.style.display = "none";
+                if (event.target == membersModal) membersModal.style.display = "none";
+            }
+
+            // --- Social Modals Logic ---
+            function setupModal(triggerId, modalId, closeClass) {
+                const trigger = document.getElementById(triggerId);
+                const modal = document.getElementById(modalId);
+                const close = modal.querySelector('.' + closeClass);
+
+                if (trigger) {
+                    trigger.onclick = function () {
+                        modal.style.display = "block";
+                    }
+                }
+
+                if (close) {
+                    close.onclick = function () {
+                        modal.style.display = "none";
+                    }
+                }
+
+                return modal;
+            }
+
+            const likesModal = setupModal('likesBtn', 'likesModal', 'close-likes');
+            const commentsModal = setupModal('commentsBtn', 'commentsModal', 'close-comments');
+            const membersModal = setupModal('membersBtn', 'membersModal', 'close-members');
+
+
+            // --- Add Next Day Journey Logic ---
+            const addJourneyModal = document.getElementById("addJourneyModal");
+            const addJourneyBtn = document.querySelector(".add-next-btn");
+            const closeAddJourney = document.querySelector(".close-add-journey");
+            const dateSelect = document.getElementById("journeyDate");
+
+            // Start Date from server (YYYY-MM-DD)
+            const startDateStr = "{{ start_date }}";
+
+            if (addJourneyBtn && addJourneyModal) {
+                addJourneyBtn.onclick = function () {
+                    populateDates();
+                    addJourneyModal.style.display = "block";
+                }
+
+                closeAddJourney.onclick = function () {
+                    addJourneyModal.style.display = "none";
+                }
+
+                window.addEventListener('click', function (event) {
+                    if (event.target == addJourneyModal) {
+                        addJourneyModal.style.display = "none";
+                    }
+                });
+            }
+
+            function populateDates() {
+                dateSelect.innerHTML = "";
+                const startDate = new Date(startDateStr);
+                const today = new Date();
+
+                // Reset times to midnight for accurate comparison
+                startDate.setHours(0, 0, 0, 0);
+                today.setHours(0, 0, 0, 0);
+
+                // If invalid start date, default to today
+                if (isNaN(startDate)) {
+                    const opt = document.createElement("option");
+                    opt.value = today.toISOString().split('T')[0];
+                    opt.textContent = today.toISOString().split('T')[0];
+                    dateSelect.appendChild(opt);
+                    return;
+                }
+
+                // Loop
+                let currentDate = new Date(startDate);
+                while (currentDate <= today) {
+                    const option = document.createElement("option");
+
+                    // Format YYYY-MM-DD local logic to avoid UTC off-by-one errors
+                    const year = currentDate.getFullYear();
+                    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(currentDate.getDate()).padStart(2, '0');
+                    const dateString = `${year}-${month}-${day}`;
+
+                    option.value = dateString;
+                    option.textContent = dateString;
+                    dateSelect.appendChild(option);
+
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            }
+
+        });
+    </script>
+</body>
+
+<!-- Add Journey Modal -->
+<div id="addJourneyModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close-btn close-add-journey">&times;</span>
+        <h3 style="margin-top:0; color: #1ebbd7;">Add Next Day Journey</h3>
+        <form action="{{ url_for('add_collab_day', collab_id=journey.id) }}" method="POST" style="margin-top: 20px;">
+            <div style="margin-bottom: 15px;">
+                <label for="memberName" style="display: block; margin-bottom: 5px; font-weight: 500;">Member
+                    Name</label>
+                <!-- Prefill with current user but allow edit as requested "ask for member name" -->
+                <input type="text" id="memberName" name="member_name" required value="{{ user_name }}"
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label for="journeyDate" style="display: block; margin-bottom: 5px; font-weight: 500;">Date</label>
+                <select id="journeyDate" name="journey_date" required
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: white;">
+                    <!-- Options populated by JS -->
+                </select>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label for="dayDescription"
+                    style="display: block; margin-bottom: 5px; font-weight: 500;">Description</label>
+                <textarea id="dayDescription" name="description" rows="5" required
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-family: inherit;"></textarea>
+            </div>
+
+            <button type="submit" class="submit-btn"
+                style="background-color: #1ebbd7; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; width: 100%; font-size: 1rem; font-weight: 600;">
+                Add Journey
+            </button>
+        </form>
+    </div>
+</div>
+
+</html>

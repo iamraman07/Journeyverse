@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Requests - JourneyVerse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        /* Specific Styles to match the provided image for My Journeys */
+
+        /* Layout Fixes */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+            background-color: #15202b;
+        }
+
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+            background-color: #1a2634;
+            /* Slightly lighter than sidebar */
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            /* Align to top to handle multi-line text */
+            margin-bottom: 30px;
+        }
+
+        .header-text h1 {
+            color: white;
+            margin: 0 0 5px 0;
+            font-size: 1.8rem;
+        }
+
+        .header-text p {
+            color: #aebccc;
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        /* Table Styles */
+        .requests-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #1f3a52;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+
+        .requests-table th,
+        .requests-table td {
+            text-align: left;
+            padding: 15px 20px;
+        }
+
+        .requests-table th {
+            background-color: #2c3e50;
+            font-weight: 600;
+            color: #aebccc;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .requests-table tr {
+            border-bottom: 1px solid #2c3e50;
+        }
+
+        .requests-table tr:last-child {
+            border-bottom: none;
+        }
+
+        .requests-table tr:hover {
+            background-color: #26435f;
+        }
+
+        .empty-state {
+            color: #aebccc;
+            text-align: center;
+            margin-top: 50px;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar (Reused structure) -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="JourneyVerse Logo">
+            </div>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li><a href="{{ url_for('my_journeys') }}">My Journeys</a></li>
+                <li class="active"><a href="{{ url_for('pending_requests') }}">Pending Request</a></li>
+                <li><a href="{{ url_for('my_collabs') }}">My Collab's</a></li>
+                <li><a href="{{ url_for('notifications') }}">Notifications</a></li>
+                <li><a href="{{ url_for('logout') }}" class="logout-btn">Log Out</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header>
+                <div class="header-content">
+                    <div class="header-text">
+                        <h1>Pending Requests</h1>
+                        <p>Manage collaboration requests for your projects.</p>
+                    </div>
+                </div>
+            </header>
+
+            {% if requests %}
+            <table class="requests-table">
+                <thead>
+                    <tr>
+                        <th>Requester Name</th>
+                        <th>Project Name</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                    <tr id="request-row-{{ req.id }}">
+                        <td>{{ req.user.name }} <span style="color: #aebccc; font-size: 0.85rem;">(ID: {{ req.user.id
+                                }})</span></td>
+                        <td>{{ req.my_journey.project_name }}</td>
+                        <td>
+                            <span style="color: #f1c40f; text-transform: capitalize;">{{ req.status }}</span>
+                        </td>
+                        <td>
+                            <button class="action-btn accept-btn" onclick="handleRequest('{{ req.id }}', 'accept')"
+                                title="Accept">
+                                <i class="fas fa-check"></i> Accept
+                            </button>
+                            <button class="action-btn decline-btn" onclick="handleRequest('{{ req.id }}', 'decline')"
+                                title="Decline">
+                                <i class="fas fa-times"></i> Decline
+                            </button>
+                            <button class="action-btn view-btn" data-username="{{ req.user.name|escape }}"
+                                data-message="{{ req.request_message|default('', true)|escape }}"
+                                data-time="{{ req.created_at.strftime('%Y-%m-%d %H:%M') }}"
+                                onclick="showUserModal(this)" title="View Message">
+                                <i class="fas fa-eye"></i> View Message
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No pending collaboration requests found.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function showUserModal(element) {
+            const userName = element.dataset.username;
+            const requestMsg = element.dataset.message;
+            const createdAt = element.dataset.time;
+
+            document.getElementById('modalUserName').textContent = userName;
+
+            const msgElement = document.getElementById('modalUserMessage');
+            if (requestMsg && requestMsg.trim() !== '') {
+                msgElement.textContent = requestMsg;
+                msgElement.style.fontStyle = 'normal';
+                msgElement.style.color = '#e0e0e0';
+            } else {
+                msgElement.textContent = '(No message provided)';
+                msgElement.style.fontStyle = 'italic';
+                msgElement.style.color = '#aebccc';
+            }
+
+            document.getElementById('modalUserTime').textContent = createdAt;
+            document.getElementById('viewUserModal').style.display = 'flex';
+        }
+
+        function handleRequest(requestId, action) {
+            if (!confirm(`Are you sure you want to ${action} this request?`)) return;
+
+            const url = action === 'accept' ? `/accept_request/${requestId}` : `/decline_request/${requestId}`;
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Remove the row
+                        const row = document.getElementById(`request-row-${requestId}`);
+                        if (row) {
+                            row.style.transition = 'opacity 0.5s';
+                            row.style.opacity = '0';
+                            setTimeout(() => row.remove(), 500);
+
+                            // Check if table is empty
+                            const tbody = document.querySelector('.requests-table tbody');
+                            if (tbody && tbody.children.length <= 1) { // 1 because we just removed one but it might not be gone from DOM yet? Actually we haven't removed it yet in DOM fully until timeout.
+                                // Simple reload if empty or just let it exist empty for now.
+                                // Better: Check visible rows.
+                            }
+                        }
+                    } else {
+                        alert(data.message || 'An error occurred');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                });
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function (event) {
+            const viewModal = document.getElementById('viewUserModal');
+            if (event.target == viewModal) {
+                viewModal.style.display = "none";
+            }
+        }
+    </script>
+
+    <style>
+        .action-btn {
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-right: 5px;
+            transition: transform 0.2s, opacity 0.2s;
+            color: white;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .accept-btn {
+            background-color: #2ecc71;
+            /* Green */
+        }
+
+        .decline-btn {
+            background-color: #e74c3c;
+            /* Red */
+        }
+
+        .view-btn {
+            background-color: #3498db;
+            /* Blue */
+        }
+
+        .action-btn i {
+            margin-right: 5px;
+        }
+
+        #viewUserModal .modal-content {
+            background-color: #1a2634;
+            color: white;
+            text-align: left;
+            border: 1px solid #4facfe;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        #viewUserModal .header-flex {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 15px;
+        }
+
+        #viewUserModal .user-icon {
+            font-size: 3rem;
+            color: #4facfe;
+            margin-bottom: 0;
+        }
+
+        #viewUserModal h2 {
+            margin: 0 0 5px 0;
+            font-size: 1.4rem;
+            color: #fff;
+        }
+
+        #viewUserModal .time-text {
+            color: #aebccc;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        #viewUserModal .message-box {
+            background: #2c3e50;
+            padding: 15px;
+            border-radius: 8px;
+            color: #e0e0e0;
+            line-height: 1.6;
+            margin-top: 15px;
+            border-left: 3px solid #4facfe;
+            white-space: pre-wrap;
+        }
+    </style>
+</body>
+
+<!-- View Message Modal -->
+<div id="viewUserModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="document.getElementById('viewUserModal').style.display='none'">&times;</span>
+
+        <div class="header-flex">
+            <div class="user-icon">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <div>
+                <h2 id="modalUserName">User Name</h2>
+                <p class="time-text"><i class="far fa-clock"></i> <span id="modalUserTime">Time</span></p>
+            </div>
+        </div>
+
+        <h4 style="margin: 0 0 10px 0; color: #4facfe; font-weight: 500;">Request Message:</h4>
+        <div class="message-box" id="modalUserMessage">
+            Message goes here
+        </div>
+    </div>
+</div>
+
+</html>

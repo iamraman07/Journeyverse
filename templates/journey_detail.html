@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JourneyVerse - Journey Detail</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .like-btn {
+            text-decoration: none;
+            color: #aebccc;
+            margin-right: 5px;
+            transition: color 0.3s;
+        }
+
+        .like-btn.liked {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="JourneyVerse">
+            </div>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li><a href="{{ url_for('my_journeys') }}">My Journeys</a></li>
+                <li><a href="{{ url_for('pending_requests') }}">Pending Request</a></li>
+                <li><a href="{{ url_for('my_collabs') }}">My Collab's</a></li>
+                <li><a href="{{ url_for('notifications') }}">Notifications</a></li>
+                <li><a href="{{ url_for('logout') }}">Log Out</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content-area journey-page">
+
+            <div class="page-header-actions" style="margin-bottom: 20px;">
+                <a href="{{ url_for('dashboard') }}" class="back-home-btn">&larr; Back to Home</a>
+            </div>
+
+            <!-- Project Header Card -->
+            <div class="project-header-card">
+                <div class="header-content-wrapper"
+                    style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+
+                    <div class="header-main" style="display: flex; gap: 20px; align-items: flex-start; flex-grow: 1;">
+                        <!-- Profile Icon -->
+                        <div class="avatar-large"
+                            style="width: 70px; height: 70px; border-radius: 50%; overflow: hidden;  background-color: #2c3e50; border: 2px solid #aebccc;">
+                            <img src="{{ url_for('static', filename='images/default_user.jpg') }}" alt="Alice"
+                                style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+
+                        <!-- Name & Description -->
+                        <div class="header-info">
+                            <h2 style="font-size: 1.3rem; margin: 0 0 5px 0; color: white;">{{ project.project_name }}
+                            </h2>
+                            <span class="date-time"
+                                style="color: #aebccc; font-size: 0.9rem; margin-bottom: 10px; display: block;">{{
+                                project.project_date_time.strftime('%Y-%m-%d %H:%M') }}</span>
+
+                            <p class="project-desc" style="color: #e0e0e0; font-size: 1rem; margin: 0;">
+                                {% set full_text = project.project_description %}
+                                {% set title_split = full_text.split('\n', 1) %}
+
+                                {% if title_split|length > 1 %}
+                                <strong style="display: block; margin-bottom: 5px; font-size: 1.1rem; color: #fff;">{{
+                                    title_split[0] }}</strong>
+                                {{ title_split[1] }}
+                                {% else %}
+                                {{ full_text }}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Next Icon Removed -->
+
+                </div>
+
+                <!-- Removed View Story Button as it wasn't in the requested image style, usually -->
+                <!-- If needed, can keep it but moved. The prompt said "improve profile icon and next icon and make it like other admin's ui" -->
+                <!-- The image shows just the arrow. -->
+
+                <div style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                    <!-- Social Actions -->
+                    <div class="header-stats">
+                        <span class="stat-item">
+                            <a href="{{ url_for('like_public_journey', journey_id=project.id) }}"
+                                class="like-btn {{ 'liked' if is_liked else '' }}">
+                                <i class="fas fa-heart"></i>
+                            </a>
+                            <span class="count" id="likesBtn" style="cursor: pointer;">{{ likes_list|length }}</span>
+                        </span>
+                        <span class="stat-item" id="commentsBtn" style="cursor: pointer;">
+                            <i class="fas fa-comment"></i>
+                            <span class="count">{{ comments_list|length }}</span>
+                        </span>
+                        <span class="stat-item" id="membersBtn" style="cursor: pointer;">
+                            <i class="fas fa-users"></i>
+                            <span class="count">{{ project.member_count }}</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Journey Timeline -->
+            <div class="journey-content">
+                <div class="journey-actions">
+                    <h3>Project Journey:</h3>
+
+                    {% if project.admin_name != user_name %}
+                    {% if request_status == 'pending' %}
+                    <button id="requestBtn" class="request-member-btn pending" disabled>Request Pending</button>
+                    {% elif request_status == 'accepted' %}
+                    <button id="requestBtn" class="request-member-btn" disabled>Member</button>
+                    {% else %}
+                    <button id="requestBtn" class="request-member-btn"
+                        onclick="document.getElementById('requestMessageModal').style.display='block'">Request as
+                        Member</button>
+                    {% endif %}
+                    {% endif %}
+                </div>
+
+                <div class="timeline-container">
+                    <div class="timeline-header-row">
+                        <div class="col-day">Day</div>
+                        <div class="col-content"></div>
+                    </div>
+
+                    {% for day_num, days_group in journey_days|groupby('day_number') %}
+                    <div class="timeline-row">
+                        <div class="day-indicator">
+                            <div class="day-circle">{{ day_num }}</div>
+                        </div>
+                        <div class="day-cards">
+                            {% for day_entry in days_group %}
+                            <div class="day-card">
+                                <div class="card-header">{{ day_entry.member_name }}</div>
+                                <div class="card-content">
+                                    {% set words = day_entry.description.split() %}
+                                    {% if words|length > 25 %}
+                                    <span class="desc-preview">
+                                        {{ words[:25]|join(' ') }}...
+                                        <a href="javascript:void(0)" class="read-more-link"
+                                            data-full-desc="{{ day_entry.description }}"
+                                            data-member="{{ day_entry.member_name }}">Read More.</a>
+                                    </span>
+                                    {% else %}
+                                    {{ day_entry.description }}
+                                    {% endif %}
+                                </div>
+                                <div class="card-action view-entry-btn" data-project="{{ project.project_name }}"
+                                    data-member="{{ day_entry.member_name }}" data-desc="{{ day_entry.description }}">
+                                    View</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="no-journey">
+                        <p>No journey updates yet.</p>
+                    </div>
+                    {% endfor %}
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Read More / View Modal -->
+    <div id="readMoreModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <div id="modalHeaderSection">
+                <h2 id="modalProjectName" style="margin-top: 0; color: #4facfe;">Project Name</h2>
+                <h3 id="modalMemberName" style="margin-top: 5px;">Member Name</h3>
+            </div>
+            <p id="modalDescription" style="margin-top: 15px; line-height: 1.6;">Full description goes here...</p>
+        </div>
+    </div>
+
+    <!-- Likes Modal -->
+    <div id="likesModal" class="modal">
+        <div class="modal-content social-modal">
+            <span class="close-btn close-likes">&times;</span>
+            <h3>Likes</h3>
+            <ul class="social-list">
+                {% for like in likes_list %}
+                <li>
+                    <i class="fas fa-user-circle"></i>
+                    <span>{{ like.user_name }}</span>
+                </li>
+                {% else %}
+                <li class="empty-state">No likes yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Comments Modal -->
+    <div id="commentsModal" class="modal">
+        <div class="modal-content social-modal">
+            <span class="close-btn close-comments">&times;</span>
+            <h3>Comments</h3>
+            <div class="comments-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+                {% for comment in comments_list %}
+                <div class="comment-item">
+                    <div class="comment-header">
+                        <i class="fas fa-user-circle"></i>
+                        <strong>{{ comment.user_name }}</strong>
+                        <span class="comment-date">{{ comment.created_at.strftime('%Y-%m-%d') }}</span>
+                    </div>
+                    <p class="comment-text">{{ comment.comment_text }}</p>
+                </div>
+                {% else %}
+                <p class="empty-state">No comments yet.</p>
+                {% endfor %}
+            </div>
+
+            <!-- Add Comment Form -->
+            <form action="{{ url_for('comment_public_journey', journey_id=project.id) }}" method="POST"
+                style="border-top: 1px solid #4facfe; padding-top: 15px;">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" name="comment_text" placeholder="Add a comment..." required
+                        style="flex-grow: 1; padding: 10px; border-radius: 5px; border: 1px solid #4facfe; background: #2c3e50; color: white;">
+                    <button type="submit"
+                        style="background: #4facfe; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer;">
+                        Send
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Members Modal -->
+    <div id="membersModal" class="modal">
+        <div class="modal-content social-modal">
+            <span class="close-btn close-members">&times;</span>
+            <h3>Members</h3>
+            <ul class="social-list">
+                {% if project.members %}
+                {% set member_names = project.members.split(',') %}
+                {% for member in member_names %}
+                {% if member.strip() %}
+                <li>
+                    <i class="fas fa-user-check"></i>
+                    <span>
+                        {{ member.strip() }}
+                        {% if member.strip() == project.admin_name %}
+                        <span
+                            style="background-color: #f1c40f; color: #1a2634; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-left: 5px; font-weight: 600;">Admin</span>
+                        {% endif %}
+                    </span>
+                </li>
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                <li class="empty-state">No members found.</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Request Message Modal -->
+    <div id="requestMessageModal" class="modal">
+        <div class="modal-content social-modal">
+            <span class="close-btn"
+                onclick="document.getElementById('requestMessageModal').style.display='none'">&times;</span>
+            <h3 style="margin-bottom: 10px; color: #4facfe;">Join Request</h3>
+            <p style="color: #aebccc; font-size: 0.9rem; margin-bottom: 20px;">Add an optional message explaining why
+                you want to join and how you can contribute.</p>
+
+            <textarea id="requestMessageInput" placeholder="Add a message (optional)..."
+                style="width: 100%; height: 100px; padding: 10px; border-radius: 8px; border: 1px solid #4facfe; background: #2c3e50; color: white; margin-bottom: 20px; font-family: 'Outfit', sans-serif; resize: vertical; box-sizing: border-box;"></textarea>
+
+            <button onclick="sendProjectRequest('{{ project.id }}')" class="request-member-btn"
+                style="width: 100%; display: block; text-align: center; box-sizing: border-box; font-size: 1rem; padding: 12px;">Submit
+                Request</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- Read More / View Logic ---
+            const mainModal = document.getElementById("readMoreModal");
+            const mainClose = mainModal.querySelector(".close-btn");
+            const modalMember = document.getElementById("modalMemberName");
+            const modalDesc = document.getElementById("modalDescription");
+
+            // New elements
+            const modalHeaderSection = document.getElementById("modalHeaderSection");
+            const modalProject = document.getElementById("modalProjectName");
+
+            // Read More Link - Show ONLY Description
+            const readMoreLinks = document.querySelectorAll('.read-more-link');
+            readMoreLinks.forEach(link => {
+                link.addEventListener('click', function () {
+                    const fullDesc = this.getAttribute('data-full-desc');
+
+                    // Hide header section (Project & Member name)
+                    if (modalHeaderSection) modalHeaderSection.style.display = "none";
+
+                    modalDesc.textContent = fullDesc;
+                    mainModal.style.display = "block";
+                });
+            });
+
+            // View Option - Show Project, Member, and Description
+            const viewButtons = document.querySelectorAll('.view-entry-btn');
+            viewButtons.forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const project = this.getAttribute('data-project');
+                    const member = this.getAttribute('data-member');
+                    const desc = this.getAttribute('data-desc');
+
+                    // Show header section and populate
+                    if (modalHeaderSection) modalHeaderSection.style.display = "block";
+                    if (modalProject) modalProject.textContent = project;
+                    if (modalMember) modalMember.textContent = member;
+                    modalDesc.textContent = desc;
+
+                    mainModal.style.display = "block";
+                });
+            });
+
+            mainClose.onclick = function () { mainModal.style.display = "none"; }
+
+            // --- Social Modals Logic ---
+
+            // Function to handle modal opening
+            function setupModal(triggerId, modalId, closeClass) {
+                const trigger = document.getElementById(triggerId);
+                const modal = document.getElementById(modalId);
+                const close = modal.querySelector('.' + closeClass);
+
+                if (trigger) {
+                    trigger.onclick = function () {
+                        modal.style.display = "block";
+                    }
+                }
+
+                if (close) {
+                    close.onclick = function () {
+                        modal.style.display = "none";
+                    }
+                }
+
+                return modal;
+            }
+
+            const likesModal = setupModal('likesBtn', 'likesModal', 'close-likes');
+            const commentsModal = setupModal('commentsBtn', 'commentsModal', 'close-comments');
+            const membersModal = setupModal('membersBtn', 'membersModal', 'close-members');
+
+            // Close ANY modal when clicking outside
+            window.onclick = function (event) {
+                if (event.target == mainModal) mainModal.style.display = "none";
+                if (event.target == likesModal) likesModal.style.display = "none";
+                if (event.target == commentsModal) commentsModal.style.display = "none";
+                if (event.target == membersModal) membersModal.style.display = "none";
+            }
+        });
+
+        // Request Logic
+        function sendProjectRequest(projectId) {
+            const btn = document.getElementById('requestBtn');
+            const messageInput = document.getElementById('requestMessageInput');
+            const modal = document.getElementById('requestMessageModal');
+            const requestMsg = messageInput ? messageInput.value : '';
+
+            // Hide modal visually
+            if (modal) modal.style.display = 'none';
+            if (messageInput) messageInput.value = ''; // clear
+
+            btn.innerHTML = "Sending...";
+            btn.disabled = true;
+
+            fetch(`/project/request/${projectId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: requestMsg })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        if (data.request_state === 'pending') {
+                            btn.innerHTML = "Request Pending";
+                            btn.classList.add('pending');
+                        }
+                    } else {
+                        alert('Error sending request. Please try again.');
+                        btn.innerHTML = "Request as Member";
+                        btn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error sending request.');
+                    btn.innerHTML = "Request as Member";
+                    btn.disabled = false;
+                });
+        }
+    </script>
+</body>
+
+</html>

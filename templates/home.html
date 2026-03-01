@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JourneyVerse - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        .like-btn-active {
+            color: red !important;
+        }
+
+        .like-btn-inactive {
+            color: inherit !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="JourneyVerse">
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="#">Home</a></li>
+                <li><a href="{{ url_for('my_journeys') }}">My Journeys</a></li>
+                <li><a href="{{ url_for('pending_requests') }}">Pending Request</a></li>
+                <li><a href="{{ url_for('my_collabs') }}">My Collab's</a></li>
+                <li><a href="{{ url_for('notifications') }}">Notifications</a></li>
+                <li><a href="{{ url_for('logout') }}">Log Out</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content-area">
+            <div class="welcome-header">
+                <h1>Hello {{ user_name }},</h1>
+                <p>{{ greeting }},<br>Explore Others Projects</p>
+            </div>
+
+            <div class="projects-list">
+                {% for project in projects %}
+                <div class="project-card">
+                    <div class="card-body">
+                        <div class="project-info">
+                            <div class="avatar-circle">
+                                <img src="{{ url_for('static', filename='images/default_user.jpg') }}" alt="User">
+                            </div>
+                            <div class="text-info">
+                                <h4>{{ project.project_name }}</h4>
+                                <span class="date">{{ project.project_date_time.strftime('%Y-%m-%d %H:%M') }}</span>
+                                <div class="desc">
+                                    {% set words = project.project_description.split() %}
+                                    {% if words|length > 25 %}
+                                    {{ words[:25]|join(' ') }}...
+                                    <a href="javascript:void(0)" class="read-more-link"
+                                        data-desc="{{ project.project_description }}"
+                                        data-title="{{ project.project_name }}">Read More.</a>
+                                    {% else %}
+                                    {{ project.project_description }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('journey_detail', project_id=project.id) }}" class="arrow-btn"
+                            style="text-decoration: none;">
+                            &gt;
+                        </a>
+                    </div>
+                    <div class="card-footer">
+                        <div class="footer-item">
+                            <a href="{{ url_for('like_home_journey', journey_id=project.id) }}"
+                                style="text-decoration: none; color: inherit;">
+                                <i
+                                    class="fas fa-heart {% if project.id in liked_project_ids %}like-btn-active{% else %}like-btn-inactive{% endif %}"></i>
+                                Like {{ project.likes }}
+                            </a>
+                        </div>
+                        <div class="footer-item" onclick="openCommentsModal('{{ project.id }}')"
+                            style="cursor: pointer;">
+                            <i class="fas fa-comment"></i> Comment {{ project.comments }}
+                        </div>
+                        <div class="footer-item"><i class="fas fa-users"></i> Members {{ project.member_count }}</div>
+                    </div>
+                </div>
+                {% else %}
+                <p>No projects found.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Read More Modal -->
+    <div id="homeReadMoreModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 id="modalTitle" style="color: #4facfe; margin-top: 0;">Project Name</h3>
+            <p id="modalDesc" style="color: #333; line-height: 1.6; font-size: 1.1rem; color: #e0e0e0;">Description...
+            </p>
+        </div>
+    </div>
+
+    <!-- Home Comments Modal -->
+    <div id="homeCommentsModal" class="modal">
+        <div class="modal-content social-modal">
+            <span class="close-btn close-comments-home">&times;</span>
+            <h3>Comments</h3>
+            <div id="homeCommentsList" class="comments-list"
+                style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+                <!-- Comments will be loaded here via JS -->
+                <p class="empty-state">Loading...</p>
+            </div>
+
+            <!-- Add Comment Form -->
+            <form id="homeCommentForm" method="POST" style="border-top: 1px solid #4facfe; padding-top: 15px;">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" name="comment_text" placeholder="Add a comment..." required
+                        style="flex-grow: 1; padding: 10px; border-radius: 5px; border: 1px solid #4facfe; background: #2c3e50; color: white;">
+                    <button type="submit"
+                        style="background: #4facfe; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer;">
+                        Send
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Define global function immediately
+        function openCommentsModal(projectId) {
+            const commentsModal = document.getElementById("homeCommentsModal");
+            const commentsList = document.getElementById("homeCommentsList");
+            const commentForm = document.getElementById("homeCommentForm");
+
+            if (!commentsModal) return;
+
+            commentsModal.style.display = "block";
+            commentsList.innerHTML = '<p class="empty-state">Loading...</p>';
+
+            // Set form action
+            commentForm.action = `/comment_home_journey/${projectId}`;
+
+            // Fetch comments
+            fetch(`/api/get_comments/${projectId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        if (data.comments.length > 0) {
+                            let html = '';
+                            data.comments.forEach(c => {
+                                html += `
+                                    <div class="comment-item" style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                                        <div class="comment-header" style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                            <strong>${c.user_name}</strong>
+                                            <span style="font-size: 0.8rem; color: #aebccc;">${c.created_at}</span>
+                                        </div>
+                                        <div class="comment-text">${c.comment_text}</div>
+                                    </div>
+                                `;
+                            });
+                            commentsList.innerHTML = html;
+                        } else {
+                            commentsList.innerHTML = '<p class="empty-state">No comments yet.</p>';
+                        }
+                    } else {
+                        commentsList.innerHTML = '<p class="empty-state">Error loading comments.</p>';
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    commentsList.innerHTML = '<p class="empty-state">Error loading comments.</p>';
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const modal = document.getElementById("homeReadMoreModal");
+            const closeBtn = modal.querySelector(".close-btn");
+            const modalTitle = document.getElementById("modalTitle");
+            const modalDesc = document.getElementById("modalDesc");
+            const links = document.querySelectorAll(".read-more-link");
+
+            links.forEach(link => {
+                link.addEventListener("click", function () {
+                    modalTitle.textContent = this.getAttribute("data-title");
+                    modalDesc.textContent = this.getAttribute("data-desc");
+                    modal.style.display = "block";
+                });
+            });
+
+            closeBtn.onclick = function () {
+                modal.style.display = "none";
+            }
+
+            const commentsModal = document.getElementById("homeCommentsModal");
+            const closeCommentsBtn = commentsModal.querySelector(".close-comments-home");
+
+            closeCommentsBtn.onclick = function () {
+                commentsModal.style.display = "none";
+            };
+
+            window.onclick = function (event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+                if (event.target == commentsModal) {
+                    commentsModal.style.display = "none";
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
