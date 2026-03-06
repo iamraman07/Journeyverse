@@ -164,7 +164,25 @@ def request_join_project(project_id):
     existing_request = MyJourneyRequest.query.filter_by(my_journey_id=project_id, user_id=user_id).first()
     
     if existing_request:
-        return {'status': 'success', 'request_state': existing_request.status, 'message': 'Request already exists'}
+        if existing_request.status == 'pending':
+            return {'status': 'success', 'request_state': existing_request.status, 'message': 'Request already exists'}
+        else:
+            existing_request.status = 'pending'
+            data = request.get_json() or {}
+            existing_request.request_message = data.get('message', '').strip()
+            project = MyJourney.query.get(project_id)
+            admin_users = User.query.filter_by(name=project.admin_name).all()
+            for admin_u in admin_users:
+                if admin_u.id != session['user_id']:
+                    notif = Notification(
+                        recipient_id=admin_u.id,
+                        message=f"{session['user_name']} requested to join {project.project_name}.",
+                        type='request_received',
+                        link=url_for('pending_requests')
+                    )
+                    db.session.add(notif)
+            db.session.commit()
+            return {'status': 'success', 'request_state': 'pending', 'message': 'Request sent successfully'}
         
     data = request.get_json() or {}
     req_msg = data.get('message', '').strip()
@@ -174,15 +192,16 @@ def request_join_project(project_id):
     
     # Notify Admin
     project = MyJourney.query.get(project_id)
-    admin_user = User.query.filter_by(name=project.admin_name).first()
-    if admin_user:
-        notif = Notification(
-            recipient_id=admin_user.id,
-            message=f"<b>{session['user_name']}</b> requested to join <b>{project.project_name}</b>.",
-            type='request_received',
-            link=url_for('pending_requests')
-        )
-        db.session.add(notif)
+    admin_users = User.query.filter_by(name=project.admin_name).all()
+    for admin_user in admin_users:
+        if admin_user:
+            notif = Notification(
+                recipient_id=admin_user.id,
+                message=f"<b>{session['user_name']}</b> requested to join <b>{project.project_name}</b>.",
+                type='request_received',
+                link=url_for('pending_requests')
+            )
+            db.session.add(notif)
         
     db.session.commit()
     
@@ -351,8 +370,8 @@ def remove_member(journey_id):
             journey.members = ", ".join(members)
             
             # --- Side Effects ---
-            removed_user = User.query.filter_by(name=member_to_remove).first()
-            if removed_user:
+            removed_users = User.query.filter_by(name=member_to_remove).all()
+            for removed_user in removed_users:
                 # 1. Clear existing pending/accepted request so "Request to Join" works again
                 existing_request = MyJourneyRequest.query.filter_by(my_journey_id=journey_id, user_id=removed_user.id).first()
                 if existing_request:
@@ -363,7 +382,7 @@ def remove_member(journey_id):
                     recipient_id=removed_user.id,
                     message=f"You have been removed from the project <b>{journey.project_name}</b> by the admin.",
                     type='member_removed',
-                    link=url_for('notifications')
+                    link=url_for('home')
                 )
                 db.session.add(notif)
                 
@@ -635,6 +654,18 @@ def like_project(project_id):
         db.session.add(new_like)
         project.likes += 1
         
+        # Notify Admin
+        admin_users = User.query.filter_by(name=project.username).all()
+        for admin_u in admin_users:
+             if admin_u.name != user_name:
+                  notif = Notification(
+                     recipient_id=admin_u.id,
+                     message=f"{user_name} liked your project {project.project_description[:20]}...",
+                     type='like',
+                     link=url_for('journey_detail', project_id=project.id)
+                 )
+                  db.session.add(notif)
+        
     db.session.commit()
     return redirect(url_for('journey_detail', project_id=project_id))
 
@@ -651,6 +682,19 @@ def comment_project(project_id):
         new_comment = ProjectComment(project_id=project.id, user_name=user_name, comment_text=comment_text)
         db.session.add(new_comment)
         project.comments += 1
+        
+        # Notify Admin
+        admin_users = User.query.filter_by(name=project.username).all()
+        for admin_u in admin_users:
+             if admin_u.name != user_name:
+                  notif = Notification(
+                     recipient_id=admin_u.id,
+                     message=f"{user_name} commented on {project.project_description[:20]}...",
+                     type='comment',
+                     link=url_for('journey_detail', project_id=project.id) + '#commentsBtn'
+                 )
+                  db.session.add(notif)
+                  
         db.session.commit()
         
     return redirect(url_for('journey_detail', project_id=project_id))
@@ -674,15 +718,16 @@ def like_my_journey(journey_id):
         journey.likes += 1
         
         # Notify Admin
-        admin_user = User.query.filter_by(name=journey.admin_name).first()
-        if admin_user and admin_user.name != user_name:
-             notif = Notification(
-                recipient_id=admin_user.id,
-                message=f"<b>{user_name}</b> liked your project <b>{journey.project_name}</b>.",
-                type='like',
-                link=url_for('my_journey_detail', journey_id=journey.id)
-            )
-             db.session.add(notif)
+        admin_users = User.query.filter_by(name=journey.admin_name).all()
+        for admin_user in admin_users:
+            if admin_user and admin_user.name != user_name:
+                 notif = Notification(
+                    recipient_id=admin_user.id,
+                    message=f"<b>{user_name}</b> liked your project <b>{journey.project_name}</b>.",
+                    type='like',
+                    link=url_for('my_journey_detail', journey_id=journey.id)
+                )
+                 db.session.add(notif)
         
     db.session.commit()
     return redirect(url_for('my_journey_detail', journey_id=journey_id))
@@ -702,15 +747,16 @@ def comment_my_journey(journey_id):
         journey.comments += 1
         
         # Notify Admin
-        admin_user = User.query.filter_by(name=journey.admin_name).first()
-        if admin_user and admin_user.name != user_name:
-             notif = Notification(
-                recipient_id=admin_user.id,
-                message=f"<b>{user_name}</b> commented on <b>{journey.project_name}</b>.",
-                type='comment',
-                link=url_for('my_journey_detail', journey_id=journey.id)
-            )
-             db.session.add(notif)
+        admin_users = User.query.filter_by(name=journey.admin_name).all()
+        for admin_user in admin_users:
+            if admin_user and admin_user.name != user_name:
+                 notif = Notification(
+                    recipient_id=admin_user.id,
+                    message=f"<b>{user_name}</b> commented on <b>{journey.project_name}</b>.",
+                    type='comment',
+                    link=url_for('my_journey_detail', journey_id=journey.id)
+                )
+                 db.session.add(notif)
              
         db.session.commit()
         
@@ -837,15 +883,16 @@ def like_my_collab(collab_id):
         journey.likes += 1
         
         # Notify Admin
-        admin_user = User.query.filter_by(name=journey.admin_name).first()
-        if admin_user and admin_user.name != user_name:
-             notif = Notification(
-                recipient_id=admin_user.id,
-                message=f"<b>{user_name}</b> liked your project <b>{journey.project_name}</b>.",
-                type='like',
-                link=url_for('my_journey_detail', journey_id=journey.id)
-            )
-             db.session.add(notif)
+        admin_users = User.query.filter_by(name=journey.admin_name).all()
+        for admin_user in admin_users:
+            if admin_user and admin_user.name != user_name:
+                 notif = Notification(
+                    recipient_id=admin_user.id,
+                    message=f"<b>{user_name}</b> liked your project <b>{journey.project_name}</b>.",
+                    type='like',
+                    link=url_for('my_journey_detail', journey_id=journey.id)
+                )
+                 db.session.add(notif)
         
     db.session.commit()
     return redirect(url_for('my_collab_detail', collab_id=collab_id))
@@ -865,15 +912,16 @@ def comment_my_collab(collab_id):
         journey.comments += 1
         
         # Notify Admin
-        admin_user = User.query.filter_by(name=journey.admin_name).first()
-        if admin_user and admin_user.name != user_name:
-             notif = Notification(
-                recipient_id=admin_user.id,
-                message=f"<b>{user_name}</b> commented on <b>{journey.project_name}</b>.",
-                type='comment',
-                link=url_for('my_journey_detail', journey_id=journey.id)
-            )
-             db.session.add(notif)
+        admin_users = User.query.filter_by(name=journey.admin_name).all()
+        for admin_user in admin_users:
+            if admin_user and admin_user.name != user_name:
+                 notif = Notification(
+                    recipient_id=admin_user.id,
+                    message=f"<b>{user_name}</b> commented on <b>{journey.project_name}</b>.",
+                    type='comment',
+                    link=url_for('my_journey_detail', journey_id=journey.id)
+                )
+                 db.session.add(notif)
              
         db.session.commit()
         
@@ -915,15 +963,16 @@ def like_home_journey(journey_id):
         journey.likes += 1
         
         # Notify Admin
-        admin_user = User.query.filter_by(name=journey.admin_name).first()
-        if admin_user and admin_user.name != user_name:
-             notif = Notification(
-                recipient_id=admin_user.id,
-                message=f"<b>{user_name}</b> liked your project <b>{journey.project_name}</b>.",
-                type='like',
-                link=url_for('my_journey_detail', journey_id=journey.id)
-            )
-             db.session.add(notif)
+        admin_users = User.query.filter_by(name=journey.admin_name).all()
+        for admin_user in admin_users:
+            if admin_user and admin_user.name != user_name:
+                 notif = Notification(
+                    recipient_id=admin_user.id,
+                    message=f"<b>{user_name}</b> liked your project <b>{journey.project_name}</b>.",
+                    type='like',
+                    link=url_for('my_journey_detail', journey_id=journey.id)
+                )
+                 db.session.add(notif)
         
     db.session.commit()
     return redirect(url_for('dashboard'))
@@ -943,15 +992,16 @@ def comment_home_journey(journey_id):
         journey.comments += 1
         
         # Notify Admin
-        admin_user = User.query.filter_by(name=journey.admin_name).first()
-        if admin_user and admin_user.name != user_name:
-             notif = Notification(
-                recipient_id=admin_user.id,
-                message=f"<b>{user_name}</b> commented on <b>{journey.project_name}</b>.",
-                type='comment',
-                link=url_for('my_journey_detail', journey_id=journey.id)
-            )
-             db.session.add(notif)
+        admin_users = User.query.filter_by(name=journey.admin_name).all()
+        for admin_user in admin_users:
+            if admin_user and admin_user.name != user_name:
+                 notif = Notification(
+                    recipient_id=admin_user.id,
+                    message=f"<b>{user_name}</b> commented on <b>{journey.project_name}</b>.",
+                    type='comment',
+                    link=url_for('my_journey_detail', journey_id=journey.id)
+                )
+                 db.session.add(notif)
              
         db.session.commit()
         
@@ -988,15 +1038,16 @@ def like_public_journey(journey_id):
         journey.likes += 1
         
         # Notify Admin
-        admin_user = User.query.filter_by(name=journey.admin_name).first()
-        if admin_user and admin_user.name != user_name:
-             notif = Notification(
-                recipient_id=admin_user.id,
-                message=f"<b>{user_name}</b> liked your project <b>{journey.project_name}</b>.",
-                type='like',
-                link=url_for('my_journey_detail', journey_id=journey.id)
-            )
-             db.session.add(notif)
+        admin_users = User.query.filter_by(name=journey.admin_name).all()
+        for admin_user in admin_users:
+            if admin_user and admin_user.name != user_name:
+                 notif = Notification(
+                    recipient_id=admin_user.id,
+                    message=f"<b>{user_name}</b> liked your project <b>{journey.project_name}</b>.",
+                    type='like',
+                    link=url_for('my_journey_detail', journey_id=journey.id)
+                )
+                 db.session.add(notif)
         
     db.session.commit()
     return redirect(url_for('journey_detail', project_id=journey.id))
@@ -1016,15 +1067,16 @@ def comment_public_journey(journey_id):
         journey.comments += 1
         
         # Notify Admin
-        admin_user = User.query.filter_by(name=journey.admin_name).first()
-        if admin_user and admin_user.name != user_name:
-             notif = Notification(
-                recipient_id=admin_user.id,
-                message=f"<b>{user_name}</b> commented on <b>{journey.project_name}</b>.",
-                type='comment',
-                link=url_for('my_journey_detail', journey_id=journey.id)
-            )
-             db.session.add(notif)
+        admin_users = User.query.filter_by(name=journey.admin_name).all()
+        for admin_user in admin_users:
+            if admin_user and admin_user.name != user_name:
+                 notif = Notification(
+                    recipient_id=admin_user.id,
+                    message=f"<b>{user_name}</b> commented on <b>{journey.project_name}</b>.",
+                    type='comment',
+                    link=url_for('my_journey_detail', journey_id=journey.id)
+                )
+                 db.session.add(notif)
              
         db.session.commit()
         

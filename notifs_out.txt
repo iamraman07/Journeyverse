@@ -1,0 +1,165 @@
+--- Line 178 ---
+   173:             existing_request.request_message = data.get('message', '').strip()
+   174:             # Notify Admin
+   175:             project = MyJourney.query.get(project_id)
+   176:             admin_user = User.query.filter_by(name=project.admin_name).first()
+   177:             if admin_user and admin_user.id != session['user_id']:
+>> 178:                 notif = Notification(
+   179:                     recipient_id=admin_user.id,
+   180:                     message=f"{session['user_name']} requested to join {project.project_name}.",
+   181:                     type='request_received',
+   182:                     link=url_for('pending_requests')
+--- Line 198 ---
+   193: 
+   194:     # Notify Admin
+   195:     project = MyJourney.query.get(project_id)
+   196:     admin_user = User.query.filter_by(name=project.admin_name).first()
+   197:     if admin_user and admin_user.id != session['user_id']:
+>> 198:         notif = Notification(
+   199:             recipient_id=admin_user.id,
+   200:             message=f"{session['user_name']} requested to join {project.project_name}.",
+   201:             type='request_received',
+   202:             link=url_for('pending_requests')
+--- Line 381 ---
+   376:                 existing_request = MyJourneyRequest.query.filter_by(my_journey_id=journey_id, user_id=removed_user.id).first()
+   377:                 if existing_request:
+   378:                     db.session.delete(existing_request)
+   379: 
+   380:                 # 2. Add Notification
+>> 381:                 notif = Notification(
+   382:                     recipient_id=removed_user.id,
+   383:                     message=f"You have been removed from the project {journey.project_name} by the admin.",
+   384:                     type='member_removed',
+   385:                     link=url_for('home')
+--- Line 484 ---
+   479:             journey.members = ", ".join(existing_members)
+   480: 
+   481:     db.session.commit()
+   482: 
+   483:     # Notify Requester
+>> 484:     notif = Notification(
+   485:         recipient_id=req.user_id,
+   486:         message=f"Your request to join {journey.project_name} was accepted.",
+   487:         type='request_accepted',
+   488:         link=url_for('my_collab_detail', collab_id=journey.id)
+--- Line 511 ---
+   506:     # Update Request Status
+   507:     req.status = 'rejected'
+   508:     db.session.commit()
+   509: 
+   510:     # Notify Requester
+>> 511:     notif = Notification(
+   512:         recipient_id=req.user_id,
+   513:         message=f"Your request to join {journey.project_name} was declined.",
+   514:         type='request_declined',
+   515:         link=url_for('my_journey_detail', journey_id=journey.id)
+--- Line 660 ---
+   655:         project.likes += 1
+   656: 
+   657:         # Notify Admin
+   658:         admin_user = User.query.filter_by(name=project.username).first()
+   659:         if admin_user and admin_user.name != user_name:
+>> 660:              notif = Notification(
+   661:                 recipient_id=admin_user.id,
+   662:                 message=f"{user_name} liked your project {project.project_description[:20]}...",
+   663:                 type='like',
+   664:                 link=url_for('journey_detail', project_id=project.id)
+--- Line 688 ---
+   683:         project.comments += 1
+   684: 
+   685:         # Notify Admin
+   686:         admin_user = User.query.filter_by(name=project.username).first()
+   687:         if admin_user and admin_user.name != user_name:
+>> 688:              notif = Notification(
+   689:                 recipient_id=admin_user.id,
+   690:                 message=f"{user_name} commented on {project.project_description[:20]}...",
+   691:                 type='comment',
+   692:                 link=url_for('journey_detail', project_id=project.id) + '#commentsBtn'
+--- Line 721 ---
+   716:         journey.likes += 1
+   717: 
+   718:         # Notify Admin
+   719:         admin_user = User.query.filter_by(name=journey.admin_name).first()
+   720:         if admin_user and admin_user.name != user_name:
+>> 721:              notif = Notification(
+   722:                 recipient_id=admin_user.id,
+   723:                 message=f"{user_name} liked your project {journey.project_name}.",
+   724:                 type='like',
+   725:                 link=url_for('my_journey_detail', journey_id=journey.id)
+--- Line 749 ---
+   744:         journey.comments += 1
+   745: 
+   746:         # Notify Admin
+   747:         admin_user = User.query.filter_by(name=journey.admin_name).first()
+   748:         if admin_user and admin_user.name != user_name:
+>> 749:              notif = Notification(
+   750:                 recipient_id=admin_user.id,
+   751:                 message=f"{user_name} commented on {journey.project_name}.",
+   752:                 type='comment',
+   753:                 link=url_for('my_journey_detail', journey_id=journey.id) + '#commentsBtn'
+--- Line 884 ---
+   879:         journey.likes += 1
+   880: 
+   881:         # Notify Admin
+   882:         admin_user = User.query.filter_by(name=journey.admin_name).first()
+   883:         if admin_user and admin_user.name != user_name:
+>> 884:              notif = Notification(
+   885:                 recipient_id=admin_user.id,
+   886:                 message=f"{user_name} liked your project {journey.project_name}.",
+   887:                 type='like',
+   888:                 link=url_for('my_journey_detail', journey_id=journey.id)
+--- Line 912 ---
+   907:         journey.comments += 1
+   908: 
+   909:         # Notify Admin
+   910:         admin_user = User.query.filter_by(name=journey.admin_name).first()
+   911:         if admin_user and admin_user.name != user_name:
+>> 912:              notif = Notification(
+   913:                 recipient_id=admin_user.id,
+   914:                 message=f"{user_name} commented on {journey.project_name}.",
+   915:                 type='comment',
+   916:                 link=url_for('my_journey_detail', journey_id=journey.id) + '#commentsBtn'
+--- Line 962 ---
+   957:         journey.likes += 1
+   958: 
+   959:         # Notify Admin
+   960:         admin_user = User.query.filter_by(name=journey.admin_name).first()
+   961:         if admin_user and admin_user.name != user_name:
+>> 962:              notif = Notification(
+   963:                 recipient_id=admin_user.id,
+   964:                 message=f"{user_name} liked your project {journey.project_name}.",
+   965:                 type='like',
+   966:                 link=url_for('my_journey_detail', journey_id=journey.id)
+--- Line 990 ---
+   985:         journey.comments += 1
+   986: 
+   987:         # Notify Admin
+   988:         admin_user = User.query.filter_by(name=journey.admin_name).first()
+   989:         if admin_user and admin_user.name != user_name:
+>> 990:              notif = Notification(
+   991:                 recipient_id=admin_user.id,
+   992:                 message=f"{user_name} commented on {journey.project_name}.",
+   993:                 type='comment',
+   994:                 link=url_for('my_journey_detail', journey_id=journey.id) + '#commentsBtn'
+--- Line 1035 ---
+   1030:         journey.likes += 1
+   1031: 
+   1032:         # Notify Admin
+   1033:         admin_user = User.query.filter_by(name=journey.admin_name).first()
+   1034:         if admin_user and admin_user.name != user_name:
+>> 1035:              notif = Notification(
+   1036:                 recipient_id=admin_user.id,
+   1037:                 message=f"{user_name} liked your project {journey.project_name}.",
+   1038:                 type='like',
+   1039:                 link=url_for('my_journey_detail', journey_id=journey.id)
+--- Line 1063 ---
+   1058:         journey.comments += 1
+   1059: 
+   1060:         # Notify Admin
+   1061:         admin_user = User.query.filter_by(name=journey.admin_name).first()
+   1062:         if admin_user and admin_user.name != user_name:
+>> 1063:              notif = Notification(
+   1064:                 recipient_id=admin_user.id,
+   1065:                 message=f"{user_name} commented on {journey.project_name}.",
+   1066:                 type='comment',
+   1067:                 link=url_for('my_journey_detail', journey_id=journey.id) + '#commentsBtn'

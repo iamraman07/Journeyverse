@@ -283,7 +283,7 @@
             <textarea id="requestMessageInput" placeholder="Add a message (optional)..."
                 style="width: 100%; height: 100px; padding: 10px; border-radius: 8px; border: 1px solid #4facfe; background: #2c3e50; color: white; margin-bottom: 20px; font-family: 'Outfit', sans-serif; resize: vertical; box-sizing: border-box;"></textarea>
 
-            <button onclick="sendProjectRequest('{{ project.id }}')" class="request-member-btn"
+            <button type="button" onclick="sendProjectRequest('{{ project.id }}')" class="request-member-btn"
                 style="width: 100%; display: block; text-align: center; box-sizing: border-box; font-size: 1rem; padding: 12px;">Submit
                 Request</button>
         </div>
@@ -392,22 +392,25 @@
                 },
                 body: JSON.stringify({ message: requestMsg })
             })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("HTTP error " + response.status);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.status === 'success') {
-                        if (data.request_state === 'pending') {
-                            btn.innerHTML = "Request Pending";
-                            btn.classList.add('pending');
-                        }
+                        btn.innerHTML = data.request_state === 'pending' ? "Request Pending" : "Member";
+                        btn.classList.add('pending');
                     } else {
-                        alert('Error sending request. Please try again.');
+                        alert(data.message || 'Error sending request. Please try again.');
                         btn.innerHTML = "Request as Member";
                         btn.disabled = false;
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error sending request.');
+                    alert('Error sending request. Check connection or login status.');
                     btn.innerHTML = "Request as Member";
                     btn.disabled = false;
                 });

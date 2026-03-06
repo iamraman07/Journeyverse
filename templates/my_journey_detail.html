@@ -8,6 +8,18 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .like-btn {
+            text-decoration: none;
+            color: #aebccc;
+            margin-right: 5px;
+            transition: color 0.3s;
+        }
+
+        .like-btn.liked {
+            color: red;
+        }
+    </style>
 </head>
 
 <body>
@@ -73,7 +85,7 @@
                     <div class="header-stats">
                         <span class="stat-item">
                             <a href="{{ url_for('like_my_journey', journey_id=journey.id) }}"
-                                style="text-decoration: none; color: {{ 'red' if is_liked else '#aebccc' }}; margin-right: 5px;">
+                                class="like-btn {{ 'liked' if is_liked else '' }}">
                                 <i class="fas fa-heart"></i>
                             </a>
                             <span class="count" id="likesBtn" style="cursor: pointer;">{{ likes_list|length }}</span>
