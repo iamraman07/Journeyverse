@@ -114,20 +114,23 @@
 
             <!-- Journey Timeline -->
             <div class="journey-content">
-                <div class="journey-actions">
+                <div class="journey-actions"
+                    style="display: flex; justify-content: space-between; align-items: center;">
                     <h3>Project Journey:</h3>
 
-                    {% if project.admin_name != user_name %}
-                    {% if request_status == 'pending' %}
-                    <button id="requestBtn" class="request-member-btn pending" disabled>Request Pending</button>
-                    {% elif request_status == 'accepted' %}
-                    <button id="requestBtn" class="request-member-btn" disabled>Member</button>
-                    {% else %}
-                    <button id="requestBtn" class="request-member-btn"
-                        onclick="document.getElementById('requestMessageModal').style.display='block'">Request as
-                        Member</button>
-                    {% endif %}
-                    {% endif %}
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        {% if project.admin_name != user_name %}
+                        {% if request_status == 'pending' %}
+                        <button id="requestBtn" class="request-member-btn pending" disabled>Request Pending</button>
+                        {% elif request_status == 'accepted' %}
+                        <button id="requestBtn" class="request-member-btn" disabled>Member</button>
+                        {% else %}
+                        <button id="requestBtn" class="request-member-btn"
+                            onclick="document.getElementById('requestMessageModal').style.display='block'">Request as
+                            Member</button>
+                        {% endif %}
+                        {% endif %}
+                    </div>
                 </div>
 
                 <div class="timeline-container">

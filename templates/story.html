@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Story - {{ journey.project_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+            background-color: #15202b;
+            color: white;
+        }
+
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 40px;
+            overflow-y: auto;
+            background-color: #1a2634;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .page-header {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .action-btn {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.1);
+            color: #4facfe;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+            border: 1px solid rgba(79, 172, 254, 0.3);
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .action-btn.primary {
+            background: #4facfe;
+            color: white;
+        }
+
+        .action-btn.primary:hover {
+            background: #00f2fe;
+        }
+
+        .story-container {
+            background-color: #1f3a52;
+            width: 100%;
+            max-width: 800px;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(79, 172, 254, 0.3);
+        }
+
+        .story-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .story-header h2 {
+            margin-top: 0;
+            color: #4facfe;
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+
+        .story-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            color: #aebccc;
+            font-size: 0.95rem;
+        }
+
+        .meta-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .story-content {
+            color: #e0e0e0;
+            font-size: 1.1rem;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            /* Preserve line breaks from AI */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar (Reused structure) -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="JourneyVerse Logo">
+            </div>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li class="active"><a href="{{ url_for('my_journeys') }}">My Journeys</a></li>
+                <li><a href="{{ url_for('pending_requests') }}">Pending Request</a></li>
+                <li><a href="{{ url_for('my_collabs') }}">My Collab's</a></li>
+                <li><a href="{{ url_for('notifications') }}">Notifications</a></li>
+                <li><a href="{{ url_for('logout') }}" class="logout-btn">Log Out</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <a href="{{ url_for('my_journey_detail', journey_id=journey.id) }}" class="action-btn">&larr; Back to
+                    Project</a>
+                <a href="{{ url_for('generate_story', project_id=journey.id) }}" class="action-btn primary"><i
+                        class="fas fa-redo"></i> Regenerate Story</a>
+            </div>
+
+            <div class="story-container">
+                <div class="story-header">
+                    <h2>Title: {{ journey.project_name }}</h2>
+                    <div class="story-meta">
+                        <span class="meta-item"><i class="fas fa-language"></i> Language: {{ story.language }}</span>
+                        <span class="meta-item"><i class="fas fa-film"></i> Genre: {{ story.genre }}</span>
+                        <span class="meta-item"><i class="fas fa-user-edit"></i> Style: {{ story.narration_style
+                            }}</span>
+                        <span class="meta-item"><i class="fas fa-ruler-horizontal"></i> Length: {{ story.story_length
+                            }}</span>
+                    </div>
+                </div>
+
+                <div class="story-content">
+                    <h3 style="color: #4facfe; margin-top: 0; margin-bottom: 20px;">Generated Story:</h3>
+                    {{ story.story_text }}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

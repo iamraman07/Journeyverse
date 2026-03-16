@@ -217,3 +217,20 @@ class Notification(db.Model):
 
     def __repr__(self):
         return f"<Notification {self.type} for User {self.recipient_id}>"
+
+class GeneratedStory(db.Model):
+    __tablename__ = 'generated_stories'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('my_journey.id'), nullable=False)
+    genre = db.Column(db.String(50), nullable=True)
+    narration_style = db.Column(db.String(50), nullable=True)
+    language = db.Column(db.String(50), nullable=True)
+    story_length = db.Column(db.String(50), nullable=True)
+    story_text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    project = db.relationship('MyJourney', backref=db.backref('stories', lazy=True, cascade="all, delete-orphan"))
+
+    def __repr__(self):
+        return f"<GeneratedStory for Project {self.project_id}>"

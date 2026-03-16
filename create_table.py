@@ -1,6 +1,6 @@
 from app import app, db
-from models import MyJourneyDay
+from models import GeneratedStory
 
 with app.app_context():
     db.create_all()
-    print("Database tables created successfully.")
+    print("Table generated_stories created successfully.")

@@ -7,8 +7,8 @@ with app.app_context():
     count = 0
     for n in notifs:
         if n.link and 'notifications' in n.link:
-            # We want to change the link from /notifications to /home
-            n.link = '/home' # Assuming /home is the route for 'home' based on typical Flask setup
+            # We want to change the link from /notifications to /
+            n.link = '/' # / is the route for 'home' based on typical Flask setup
             count += 1
             
     db.session.commit()

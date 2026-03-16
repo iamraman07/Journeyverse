@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Story - {{ journey.project_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+            background-color: #15202b;
+            color: white;
+        }
+
+        .dashboard-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 40px;
+            overflow-y: auto;
+            background-color: #1a2634;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* Center the form */
+        }
+
+        .page-header {
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+
+        .back-home-btn {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.1);
+            color: #4facfe;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+
+        .back-home-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .form-container {
+            background-color: #1f3a52;
+            width: 100%;
+            max-width: 600px;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(79, 172, 254, 0.3);
+        }
+
+        .form-container h2 {
+            margin-top: 0;
+            color: #4facfe;
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .form-container p.subtitle {
+            color: #aebccc;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #e0e0e0;
+            font-weight: 500;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 1px solid #4facfe;
+            background-color: #2c3e50;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            cursor: pointer;
+            appearance: none;
+            /* Remove default browser arrow */
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%234facfe%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 15px top 50%;
+            background-size: 12px auto;
+        }
+
+        .form-group select:focus {
+            border-color: #00f2fe;
+            box-shadow: 0 0 8px rgba(0, 242, 254, 0.4);
+        }
+
+        .form-group select option {
+            background-color: #2c3e50;
+            color: white;
+        }
+
+        .submit-btn {
+            background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1.1rem;
+            width: 100%;
+            margin-top: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar (Reused structure) -->
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="JourneyVerse Logo">
+            </div>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li class="active"><a href="{{ url_for('my_journeys') }}">My Journeys</a></li>
+                <li><a href="{{ url_for('pending_requests') }}">Pending Request</a></li>
+                <li><a href="{{ url_for('my_collabs') }}">My Collab's</a></li>
+                <li><a href="{{ url_for('notifications') }}">Notifications</a></li>
+                <li><a href="{{ url_for('logout') }}" class="logout-btn">Log Out</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <a href="{{ url_for('my_journey_detail', journey_id=journey.id) }}" class="back-home-btn">&larr; Back to
+                    Project</a>
+            </div>
+
+            <div class="form-container">
+                <h2>AI Story Generator</h2>
+                <p class="subtitle">Customize how you want your journey's story to be told.</p>
+
+                <form action="{{ url_for('generate_story', project_id=journey.id) }}" method="POST">
+
+                    <div class="form-group">
+                        <label for="genre">Genre</label>
+                        <select id="genre" name="genre" required>
+                            <option value="" disabled selected>Select a Genre</option>
+                            <option value="Motivational">Motivational</option>
+                            <option value="Documentary">Documentary</option>
+                            <option value="Cinematic">Cinematic</option>
+                            <option value="Bollywood Style">Bollywood Style</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="narration_style">Narration Style</label>
+                        <select id="narration_style" name="narration_style" required>
+                            <option value="" disabled selected>Select Narration Style</option>
+                            <option value="First Person">First Person</option>
+                            <option value="Third Person">Third Person</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="language">Language</label>
+                        <select id="language" name="language" required>
+                            <option value="" disabled selected>Select Language</option>
+                            <option value="English">English</option>
+                            <option value="Hindi">Hindi</option>
+                            <option value="Hinglish">Hinglish</option>
+                            <option value="Punjabi">Punjabi</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="story_length">Story Length</label>
+                        <select id="story_length" name="story_length" required>
+                            <option value="" disabled selected>Select Story Length</option>
+                            <option value="Short">Short</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Detailed">Detailed</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-magic"></i> Generate Story
+                    </button>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

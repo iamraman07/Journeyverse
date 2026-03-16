@@ -1,0 +1,2 @@
+now when i click on view button of that notification of remove team member then this issue occur-"Not Found
+The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again."

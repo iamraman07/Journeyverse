@@ -1,7 +1,17 @@
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify
 from flask_bcrypt import Bcrypt
 from config import Config
-from models import db, User, Project, JourneyDay, ProjectRequest, ProjectLike, ProjectComment, MyJourney, MyJourneyDay, MyJourneyLike, MyJourneyComment, MyCollab, MyCollabDay, MyCollabLike, MyCollabComment, MyJourneyRequest, Notification
+from models import db, User, Project, JourneyDay, ProjectRequest, ProjectLike, ProjectComment, MyJourney, MyJourneyDay, MyJourneyLike, MyJourneyComment, MyCollab, MyCollabDay, MyCollabLike, MyCollabComment, MyJourneyRequest, Notification, GeneratedStory
+import os
+from google import genai
+
+if os.path.exists('.env'):
+    with open('.env') as f:
+        for line in f:
+            if line.strip() and not line.startswith('#') and '=' in line:
+                key, value = line.strip().split('=', 1)
+                os.environ[key.strip()] = value.strip('"\'')
+print("API KEY:", os.getenv("GOOGLE_API_KEY"))
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -39,9 +49,10 @@ def signup():
         name = request.form.get('name')
         email = request.form.get('email')
         password = request.form.get('password')
+        gender = request.form.get('gender')
         
         # Validation checks
-        if not name or not email or not password:
+        if not name or not email or not password or not gender:
             flash('All fields are required.', 'danger')
             return redirect(url_for('signup'))
             
@@ -51,7 +62,7 @@ def signup():
             return redirect(url_for('signup'))
             
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-        new_user = User(name=name, email=email, password=hashed_password)
+        new_user = User(name=name, email=email, password=hashed_password, gender=gender)
         
         db.session.add(new_user)
         db.session.commit()
@@ -631,8 +642,249 @@ def add_journey_day(journey_id):
     db.session.commit()
     return redirect(url_for('my_journey_detail', journey_id=journey_id))
 
-    db.session.commit()
-    return redirect(url_for('my_journey_detail', journey_id=journey_id))
+@app.route('/generate_story/<int:project_id>', methods=['GET', 'POST'])
+def generate_story(project_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    journey = MyJourney.query.get_or_404(project_id)
+    
+    # Permission Check: Only Admin can access this
+    if journey.admin_name and journey.admin_name != session.get('user_name'):
+         flash('Only the admin can generate a story.', 'danger')
+         return redirect(url_for('my_journey_detail', journey_id=project_id))
+
+    if request.method == 'POST':
+        genre = request.form.get('genre')
+        narration_style = request.form.get('narration_style')
+        language = request.form.get('language')
+        story_length = request.form.get('story_length')
+        
+        # --- Step 4: Fetch and format journey entries ---
+        real_days = MyJourneyDay.query.filter_by(my_journey_id=journey.id).order_by(MyJourneyDay.journey_date, MyJourneyDay.id).all()
+        
+        # Calculate Day Number (Calendar based, matching the detail page logic)
+        dropdown_start_date = journey.project_date_time.date()
+        calc_start_date = dropdown_start_date
+        if real_days:
+            first_entry_date = real_days[0].journey_date
+            if first_entry_date < calc_start_date:
+                calc_start_date = first_entry_date
+
+        formatted_journey_entries = ""
+        for day in real_days:
+            delta = (day.journey_date - calc_start_date).days
+            day_num = delta + 1
+            formatted_journey_entries += f"Day {day_num}: {day.description}\n"
+            
+            
+        # --- Collect Team Member Genders ---
+        admin_user = User.query.filter_by(name=journey.admin_name).first()
+        admin_gender = admin_user.gender if admin_user and admin_user.gender else "Unknown"
+        
+        team_members_info = ""
+        if journey.members:
+            member_names = [m.strip() for m in journey.members.split(',')]
+            for mem_name in member_names:
+                mem_user = User.query.filter_by(name=mem_name).first()
+                mem_gender = mem_user.gender if mem_user and mem_user.gender else "Unknown"
+                team_members_info += f"- {mem_name} ({mem_gender})\n"
+        
+        print(f"--- Fetched Journey Entries for Project {journey.id} ---\n{formatted_journey_entries}--------------------------------------------------")
+        
+        # --- Step 5: Story Length Handling ---
+        length_instruction = ""
+        if story_length == "Short":
+            length_instruction = "150-200"
+        elif story_length == "Medium":
+            length_instruction = "400-600"
+        elif story_length == "Detailed":
+            length_instruction = "900-1200"
+            
+        # --- Step 6: Build AI Prompt ---
+        ai_prompt = f"""Project Name: {journey.project_name}
+
+Narration Style: {narration_style}
+
+Admin: {journey.admin_name} ({admin_gender})
+
+Team Members:
+{team_members_info}
+Language: {language}
+Genre: {genre}
+Story Length: {length_instruction} words
+
+Journey Entries:
+{formatted_journey_entries}
+
+Instruction for AI:
+
+1. Use ONLY the names listed in the Team Members section.
+
+2. Use correct pronouns based on gender.
+
+Example:
+Raman → she/her
+Bob → he/him
+
+3. Do NOT assume gender from the name.
+
+4. FIRST PERSON RULE
+
+If narration style is FIRST PERSON:
+The narrator is the admin.
+
+Whenever the narrator speaks using "I", prefix the sentence with the admin name in brackets.
+
+Example:
+
+(Bob) I started working on the project structure.
+
+5. THIRD PERSON RULE
+
+If narration style is THIRD PERSON:
+Do not use brackets.
+
+Example:
+
+Bob started designing the system.
+Raman tested the feature.
+
+6. Never invent new names.
+7. DO NOT INVENT DIALOGUES
+
+The AI must not create fictional conversations between team members.
+Incorrect example:
+"Bob said excitedly..."
+Correct example:
+Bob started working on the project structure.
+Only describe actions that logically follow from the journey entries.
+
+8. GENRE SHOULD ONLY AFFECT TONE
+
+Genre should influence the tone of the storytelling but must not change the events.
+Do not turn the story into a movie script.
+Avoid lines such as: "Ek naya Bollywood chapter shuru hua..."
+Instead focus on the development journey.
+
+9. REDUCE FILLER STORYTELLING
+
+Avoid long poetic descriptions that do not describe real actions.
+Incorrect example: "Coding ki duniya mein kahaniyan likhi ja rahi thin..."
+Correct example: Bob started setting up the backend and frontend structure for the project.
+Every paragraph should mainly describe real work done in the project.
+
+10. KEEP THE STORY GROUNDED IN THE PROJECT
+
+The story should feel like a real project-building journey.
+Focus on: planning, coding, testing, design decisions, feature implementation, collaboration.
+Avoid turning the story into a fictional narrative.
+
+11. IMPROVE COLLABORATION FLOW
+
+Avoid repetitive patterns like: "Bob built a feature. Ramandeep tested it."
+Instead describe collaboration naturally.
+Example: Bob implemented the login system while Ramandeep tested different scenarios to ensure the authentication flow worked properly.
+
+12. NO DAY NUMBERS OR DOCUMENTATION STYLE
+
+Do NOT divide the story into "Day 1", "Day 2", etc.
+Hide the day numbers completely and transition the timeline naturally.
+Do not format the output like a changelog, list, or documentation. Write a continuous, flowing narrative.
+
+13. KEEP LANGUAGE NATURAL AND PROFESSIONAL
+
+If the language is Hinglish and genre is Bollywood:
+- Maintain a highly professional developer tone.
+- Do NOT use typical or dramatic Bollywood movie dialogues.
+- Do NOT write overly dramatic or cheesy lines.
+- Write naturally, integrating Hindi and English smoothly, as a real engineer would narrate their work.
+
+14. KEEP THE STORY FOCUSED ON THE BUILDING PROCESS
+
+The main focus should always remain on:
+how the project idea started
+how features were built
+how the team collaborated
+how the system evolved
+"""
+        print("\n--- FINAL PROMPT SENT TO GEMINI ---\n")
+        print(ai_prompt)
+        print("\n-----------------------------------\n")
+        
+        # --- Step 8: Check for existing story ---
+        existing_story = GeneratedStory.query.filter_by(
+            project_id=journey.id,
+            genre=genre,
+            narration_style=narration_style,
+            language=language,
+            story_length=story_length
+        ).first()
+        
+        if existing_story:
+            db.session.delete(existing_story)
+            db.session.commit()
+            
+        try:
+            api_key = os.environ.get("GOOGLE_API_KEY")
+            if not api_key:
+                flash("AI Error: GOOGLE_API_KEY environment variable is not set.", "danger")
+                return redirect(url_for('my_journey_detail', journey_id=project_id))
+                
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=ai_prompt
+            )
+            generated_text = response.text
+            
+            # Save the generated story to the database
+            new_story = GeneratedStory(
+                project_id=journey.id,
+                genre=genre,
+                narration_style=narration_style,
+                language=language,
+                story_length=story_length,
+                story_text=generated_text
+            )
+            db.session.add(new_story)
+            db.session.commit()
+            
+            flash(f'Story successfully generated by AI!', 'success')
+            return redirect(url_for('view_story', project_id=project_id, story_id=new_story.id))
+            
+        except Exception as e:
+            print(f"AI Generation Error: {e}")
+            error_message = str(e)
+            
+            # Check for common API errors to show better feedback
+            if "429" in error_message or "RESOURCE_EXHAUSTED" in error_message or "quota" in error_message.lower():
+                flash('AI API Daily Quota Exceeded. Please try again tomorrow or update your API billing plan.', 'danger')
+            else:
+                flash(f'Error generating AI story: {error_message}', 'danger')
+                
+            return redirect(url_for('generate_story', project_id=project_id))
+            
+    # Render the generate story page for GET request
+    return render_template('generate_story.html', journey=journey)
+
+
+@app.route('/story/<int:project_id>')
+def view_story(project_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    journey = MyJourney.query.get_or_404(project_id)
+    
+    # Get the specific story requested via query parameter, or get the latest one
+    story_id = request.args.get('story_id')
+    if story_id:
+        story = GeneratedStory.query.get_or_404(story_id)
+    else:
+        # Default to the most recent generated story for this project
+        story = GeneratedStory.query.filter_by(project_id=project_id).order_by(GeneratedStory.id.desc()).first_or_404()
+        
+    return render_template('story.html', journey=journey, story=story)
 
 # --- Social Routes ---
 

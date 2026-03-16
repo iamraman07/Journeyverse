@@ -1,0 +1,445 @@
+﻿diff --git a/__pycache__/app.cpython-313.pyc b/__pycache__/app.cpython-313.pyc
+index 2d3f70b..db912ce 100644
+Binary files a/__pycache__/app.cpython-313.pyc and b/__pycache__/app.cpython-313.pyc differ
+diff --git a/__pycache__/models.cpython-313.pyc b/__pycache__/models.cpython-313.pyc
+index e562f0d..dffe75f 100644
+Binary files a/__pycache__/models.cpython-313.pyc and b/__pycache__/models.cpython-313.pyc differ
+diff --git a/app.py b/app.py
+index 9d1f6dd..ac50f80 100644
+--- a/app.py
++++ b/app.py
+@@ -1,7 +1,17 @@
+ from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify
+ from flask_bcrypt import Bcrypt
+ from config import Config
+-from models import db, User, Project, JourneyDay, ProjectRequest, ProjectLike, ProjectComment, MyJourney, MyJourneyDay, MyJourneyLike, MyJourneyComment, MyCollab, MyCollabDay, MyCollabLike, MyCollabComment, MyJourneyRequest, Notification
++from models import db, User, Project, JourneyDay, ProjectRequest, ProjectLike, ProjectComment, MyJourney, MyJourneyDay, MyJourneyLike, MyJourneyComment, MyCollab, MyCollabDay, MyCollabLike, MyCollabComment, MyJourneyRequest, Notification, GeneratedStory
++import os
++from google import genai
++
++if os.path.exists('.env'):
++    with open('.env') as f:
++        for line in f:
++            if line.strip() and not line.startswith('#') and '=' in line:
++                key, value = line.strip().split('=', 1)
++                os.environ[key.strip()] = value.strip('"\'')
++print("API KEY:", os.getenv("GOOGLE_API_KEY"))
+ 
+ app = Flask(__name__)
+ app.config.from_object(Config)
+@@ -39,9 +49,10 @@ def signup():
+         name = request.form.get('name')
+         email = request.form.get('email')
+         password = request.form.get('password')
++        gender = request.form.get('gender')
+         
+         # Validation checks
+-        if not name or not email or not password:
++        if not name or not email or not password or not gender:
+             flash('All fields are required.', 'danger')
+             return redirect(url_for('signup'))
+             
+@@ -51,7 +62,7 @@ def signup():
+             return redirect(url_for('signup'))
+             
+         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+-        new_user = User(name=name, email=email, password=hashed_password)
++        new_user = User(name=name, email=email, password=hashed_password, gender=gender)
+         
+         db.session.add(new_user)
+         db.session.commit()
+@@ -631,8 +642,249 @@ def add_journey_day(journey_id):
+     db.session.commit()
+     return redirect(url_for('my_journey_detail', journey_id=journey_id))
+ 
+-    db.session.commit()
+-    return redirect(url_for('my_journey_detail', journey_id=journey_id))
++@app.route('/generate_story/<int:project_id>', methods=['GET', 'POST'])
++def generate_story(project_id):
++    if 'user_id' not in session:
++        return redirect(url_for('login'))
++        
++    journey = MyJourney.query.get_or_404(project_id)
++    
++    # Permission Check: Only Admin can access this
++    if journey.admin_name and journey.admin_name != session.get('user_name'):
++         flash('Only the admin can generate a story.', 'danger')
++         return redirect(url_for('my_journey_detail', journey_id=project_id))
++
++    if request.method == 'POST':
++        genre = request.form.get('genre')
++        narration_style = request.form.get('narration_style')
++        language = request.form.get('language')
++        story_length = request.form.get('story_length')
++        
++        # --- Step 4: Fetch and format journey entries ---
++        real_days = MyJourneyDay.query.filter_by(my_journey_id=journey.id).order_by(MyJourneyDay.journey_date, MyJourneyDay.id).all()
++        
++        # Calculate Day Number (Calendar based, matching the detail page logic)
++        dropdown_start_date = journey.project_date_time.date()
++        calc_start_date = dropdown_start_date
++        if real_days:
++            first_entry_date = real_days[0].journey_date
++            if first_entry_date < calc_start_date:
++                calc_start_date = first_entry_date
++
++        formatted_journey_entries = ""
++        for day in real_days:
++            delta = (day.journey_date - calc_start_date).days
++            day_num = delta + 1
++            formatted_journey_entries += f"Day {day_num}: {day.description}\n"
++            
++            
++        # --- Collect Team Member Genders ---
++        admin_user = User.query.filter_by(name=journey.admin_name).first()
++        admin_gender = admin_user.gender if admin_user and admin_user.gender else "Unknown"
++        
++        team_members_info = ""
++        if journey.members:
++            member_names = [m.strip() for m in journey.members.split(',')]
++            for mem_name in member_names:
++                mem_user = User.query.filter_by(name=mem_name).first()
++                mem_gender = mem_user.gender if mem_user and mem_user.gender else "Unknown"
++                team_members_info += f"- {mem_name} ({mem_gender})\n"
++        
++        print(f"--- Fetched Journey Entries for Project {journey.id} ---\n{formatted_journey_entries}--------------------------------------------------")
++        
++        # --- Step 5: Story Length Handling ---
++        length_instruction = ""
++        if story_length == "Short":
++            length_instruction = "150-200"
++        elif story_length == "Medium":
++            length_instruction = "400-600"
++        elif story_length == "Detailed":
++            length_instruction = "900-1200"
++            
++        # --- Step 6: Build AI Prompt ---
++        ai_prompt = f"""Project Name: {journey.project_name}
++
++Narration Style: {narration_style}
++
++Admin: {journey.admin_name} ({admin_gender})
++
++Team Members:
++{team_members_info}
++Language: {language}
++Genre: {genre}
++Story Length: {length_instruction} words
++
++Journey Entries:
++{formatted_journey_entries}
++
++Instruction for AI:
++
++1. Use ONLY the names listed in the Team Members section.
++
++2. Use correct pronouns based on gender.
++
++Example:
++Raman ΓåÆ she/her
++Bob ΓåÆ he/him
++
++3. Do NOT assume gender from the name.
++
++4. FIRST PERSON RULE
++
++If narration style is FIRST PERSON:
++The narrator is the admin.
++
++Whenever the narrator speaks using "I", prefix the sentence with the admin name in brackets.
++
++Example:
++
++(Bob) I started working on the project structure.
++
++5. THIRD PERSON RULE
++
++If narration style is THIRD PERSON:
++Do not use brackets.
++
++Example:
++
++Bob started designing the system.
++Raman tested the feature.
++
++6. Never invent new names.
++7. DO NOT INVENT DIALOGUES
++
++The AI must not create fictional conversations between team members.
++Incorrect example:
++"Bob said excitedly..."
++Correct example:
++Bob started working on the project structure.
++Only describe actions that logically follow from the journey entries.
++
++8. GENRE SHOULD ONLY AFFECT TONE
++
++Genre should influence the tone of the storytelling but must not change the events.
++Do not turn the story into a movie script.
++Avoid lines such as: "Ek naya Bollywood chapter shuru hua..."
++Instead focus on the development journey.
++
++9. REDUCE FILLER STORYTELLING
++
++Avoid long poetic descriptions that do not describe real actions.
++Incorrect example: "Coding ki duniya mein kahaniyan likhi ja rahi thin..."
++Correct example: Bob started setting up the backend and frontend structure for the project.
++Every paragraph should mainly describe real work done in the project.
++
++10. KEEP THE STORY GROUNDED IN THE PROJECT
++
++The story should feel like a real project-building journey.
++Focus on: planning, coding, testing, design decisions, feature implementation, collaboration.
++Avoid turning the story into a fictional narrative.
++
++11. IMPROVE COLLABORATION FLOW
++
++Avoid repetitive patterns like: "Bob built a feature. Ramandeep tested it."
++Instead describe collaboration naturally.
++Example: Bob implemented the login system while Ramandeep tested different scenarios to ensure the authentication flow worked properly.
++
++12. NO DAY NUMBERS OR DOCUMENTATION STYLE
++
++Do NOT divide the story into "Day 1", "Day 2", etc.
++Hide the day numbers completely and transition the timeline naturally.
++Do not format the output like a changelog, list, or documentation. Write a continuous, flowing narrative.
++
++13. KEEP LANGUAGE NATURAL AND PROFESSIONAL
++
++If the language is Hinglish and genre is Bollywood:
++- Maintain a highly professional developer tone.
++- Do NOT use typical or dramatic Bollywood movie dialogues.
++- Do NOT write overly dramatic or cheesy lines.
++- Write naturally, integrating Hindi and English smoothly, as a real engineer would narrate their work.
++
++14. KEEP THE STORY FOCUSED ON THE BUILDING PROCESS
++
++The main focus should always remain on:
++how the project idea started
++how features were built
++how the team collaborated
++how the system evolved
++"""
++        print("\n--- FINAL PROMPT SENT TO GEMINI ---\n")
++        print(ai_prompt)
++        print("\n-----------------------------------\n")
++        
++        # --- Step 8: Check for existing story ---
++        existing_story = GeneratedStory.query.filter_by(
++            project_id=journey.id,
++            genre=genre,
++            narration_style=narration_style,
++            language=language,
++            story_length=story_length
++        ).first()
++        
++        if existing_story:
++            db.session.delete(existing_story)
++            db.session.commit()
++            
++        try:
++            api_key = os.environ.get("GOOGLE_API_KEY")
++            if not api_key:
++                flash("AI Error: GOOGLE_API_KEY environment variable is not set.", "danger")
++                return redirect(url_for('my_journey_detail', journey_id=project_id))
++                
++            client = genai.Client(api_key=api_key)
++            response = client.models.generate_content(
++                model='gemini-2.5-flash',
++                contents=ai_prompt
++            )
++            generated_text = response.text
++            
++            # Save the generated story to the database
++            new_story = GeneratedStory(
++                project_id=journey.id,
++                genre=genre,
++                narration_style=narration_style,
++                language=language,
++                story_length=story_length,
++                story_text=generated_text
++            )
++            db.session.add(new_story)
++            db.session.commit()
++            
++            flash(f'Story successfully generated by AI!', 'success')
++            return redirect(url_for('view_story', project_id=project_id, story_id=new_story.id))
++            
++        except Exception as e:
++            print(f"AI Generation Error: {e}")
++            error_message = str(e)
++            
++            # Check for common API errors to show better feedback
++            if "429" in error_message or "RESOURCE_EXHAUSTED" in error_message or "quota" in error_message.lower():
++                flash('AI API Daily Quota Exceeded. Please try again later or update your API billing plan.', 'danger')
++            else:
++                flash(f'Error generating AI story: {error_message}', 'danger')
++                
++            return redirect(url_for('my_journey_detail', journey_id=project_id))
++            
++    # Render the generate story page for GET request
++    return render_template('generate_story.html', journey=journey)
++
++
++@app.route('/story/<int:project_id>')
++def view_story(project_id):
++    if 'user_id' not in session:
++        return redirect(url_for('login'))
++        
++    journey = MyJourney.query.get_or_404(project_id)
++    
++    # Get the specific story requested via query parameter, or get the latest one
++    story_id = request.args.get('story_id')
++    if story_id:
++        story = GeneratedStory.query.get_or_404(story_id)
++    else:
++        # Default to the most recent generated story for this project
++        story = GeneratedStory.query.filter_by(project_id=project_id).order_by(GeneratedStory.id.desc()).first_or_404()
++        
++    return render_template('story.html', journey=journey, story=story)
+ 
+ # --- Social Routes ---
+ 
+diff --git a/create_table.py b/create_table.py
+index c33b716..6563381 100644
+--- a/create_table.py
++++ b/create_table.py
+@@ -1,6 +1,6 @@
+ from app import app, db
+-from models import MyJourneyDay
++from models import GeneratedStory
+ 
+ with app.app_context():
+     db.create_all()
+-    print("Database tables created successfully.")
++    print("Table generated_stories created successfully.")
+diff --git a/models.py b/models.py
+index 2f4d96a..53113cf 100644
+--- a/models.py
++++ b/models.py
+@@ -9,6 +9,7 @@ class User(db.Model):
+     name = db.Column(db.String(100), nullable=False)
+     email = db.Column(db.String(120), unique=True, nullable=False)
+     password = db.Column(db.String(255), nullable=False)
++    gender = db.Column(db.String(10), nullable=True) # E.g., Male, Female, Other
+ 
+     def __repr__(self):
+         return f"<User {self.email}>"
+@@ -217,3 +218,20 @@ class Notification(db.Model):
+ 
+     def __repr__(self):
+         return f"<Notification {self.type} for User {self.recipient_id}>"
++
++class GeneratedStory(db.Model):
++    __tablename__ = 'generated_stories'
++    
++    id = db.Column(db.Integer, primary_key=True)
++    project_id = db.Column(db.Integer, db.ForeignKey('my_journey.id'), nullable=False)
++    genre = db.Column(db.String(255), nullable=True)
++    narration_style = db.Column(db.String(255), nullable=True)
++    language = db.Column(db.String(255), nullable=True)
++    story_length = db.Column(db.String(255), nullable=True)
++    story_text = db.Column(db.Text, nullable=False)
++    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
++    
++    project = db.relationship('MyJourney', backref=db.backref('generated_stories', lazy=True, cascade="all, delete-orphan"))
++
++    def __repr__(self):
++        return f"<GeneratedStory {self.id} for Project {self.project_id}>"
+diff --git a/templates/journey_detail.html b/templates/journey_detail.html
+index 2983a8e..de80596 100644
+--- a/templates/journey_detail.html
++++ b/templates/journey_detail.html
+@@ -114,20 +114,23 @@
+ 
+             <!-- Journey Timeline -->
+             <div class="journey-content">
+-                <div class="journey-actions">
++                <div class="journey-actions"
++                    style="display: flex; justify-content: space-between; align-items: center;">
+                     <h3>Project Journey:</h3>
+ 
+-                    {% if project.admin_name != user_name %}
+-                    {% if request_status == 'pending' %}
+-                    <button id="requestBtn" class="request-member-btn pending" disabled>Request Pending</button>
+-                    {% elif request_status == 'accepted' %}
+-                    <button id="requestBtn" class="request-member-btn" disabled>Member</button>
+-                    {% else %}
+-                    <button id="requestBtn" class="request-member-btn"
+-                        onclick="document.getElementById('requestMessageModal').style.display='block'">Request as
+-                        Member</button>
+-                    {% endif %}
+-                    {% endif %}
++                    <div style="display: flex; gap: 10px; align-items: center;">
++                        {% if project.admin_name != user_name %}
++                        {% if request_status == 'pending' %}
++                        <button id="requestBtn" class="request-member-btn pending" disabled>Request Pending</button>
++                        {% elif request_status == 'accepted' %}
++                        <button id="requestBtn" class="request-member-btn" disabled>Member</button>
++                        {% else %}
++                        <button id="requestBtn" class="request-member-btn"
++                            onclick="document.getElementById('requestMessageModal').style.display='block'">Request as
++                            Member</button>
++                        {% endif %}
++                        {% endif %}
++                    </div>
+                 </div>
+ 
+                 <div class="timeline-container">
+diff --git a/templates/my_journey_detail.html b/templates/my_journey_detail.html
+index 4e2727b..73de20c 100644
+--- a/templates/my_journey_detail.html
++++ b/templates/my_journey_detail.html
+@@ -106,8 +106,15 @@
+ 
+             <!-- Journey Timeline -->
+             <div class="journey-content">
+-                <div class="journey-actions">
++                <div class="journey-actions"
++                    style="display: flex; justify-content: space-between; align-items: center;">
+                     <h3>Project Journey:</h3>
++                    {% if journey.admin_name == user_name %}
++                    <a href="{{ url_for('generate_story', project_id=journey.id) }}" class="request-member-btn"
++                        style="text-decoration: none; padding: 10px 15px; border-radius: 5px; font-weight: 500;">
++                        <i class="fas fa-magic" style="margin-right: 5px;"></i> Generate Story
++                    </a>
++                    {% endif %}
+                 </div>
+ 
+                 <div class="timeline-container">
+diff --git a/templates/signup.html b/templates/signup.html
+index 528dcfc..5c2f784 100644
+--- a/templates/signup.html
++++ b/templates/signup.html
+@@ -44,6 +44,16 @@
+                     <input type="email" id="email" name="email" required>
+                 </div>
+ 
++                <div class="form-group">
++                    <label for="gender">Gender</label>
++                    <select id="gender" name="gender" required class="form-control" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: 'Outfit', sans-serif;">
++                        <option value="">Select Gender</option>
++                        <option value="Male">Male</option>
++                        <option value="Female">Female</option>
++                        <option value="Other">Other</option>
++                    </select>
++                </div>
++
+                 <div class="form-group">
+                     <label for="password">Password</label>
+                     <input type="password" id="password" name="password" required>
+diff --git a/update_notif_links.py b/update_notif_links.py
+index 1e8b955..aa716f5 100644
+--- a/update_notif_links.py
++++ b/update_notif_links.py
+@@ -7,8 +7,8 @@ with app.app_context():
+     count = 0
+     for n in notifs:
+         if n.link and 'notifications' in n.link:
+-            # We want to change the link from /notifications to /home
+-            n.link = '/home' # Assuming /home is the route for 'home' based on typical Flask setup
++            # We want to change the link from /notifications to /
++            n.link = '/' # / is the route for 'home' based on typical Flask setup
+             count += 1
+             
+     db.session.commit()
