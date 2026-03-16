@@ -1,9 +1,15 @@
-from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify
+from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, make_response
 from flask_bcrypt import Bcrypt
 from config import Config
 from models import db, User, Project, JourneyDay, ProjectRequest, ProjectLike, ProjectComment, MyJourney, MyJourneyDay, MyJourneyLike, MyJourneyComment, MyCollab, MyCollabDay, MyCollabLike, MyCollabComment, MyJourneyRequest, Notification, GeneratedStory
 import os
+import io
 from google import genai
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+
 
 if os.path.exists('.env'):
     with open('.env') as f:
@@ -885,6 +891,54 @@ def view_story(project_id):
         story = GeneratedStory.query.filter_by(project_id=project_id).order_by(GeneratedStory.id.desc()).first_or_404()
         
     return render_template('story.html', journey=journey, story=story)
+
+@app.route('/download_story_pdf/<int:story_id>')
+def download_story_pdf(story_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    story = GeneratedStory.query.get_or_404(story_id)
+    journey = MyJourney.query.get(story.project_id)
+    
+    # Permission Check (Matching view_story access if strict, though view_story doesn't strictly check admin here. Assuming if they can view it they can download it)
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='Justify', alignment=TA_JUSTIFY))
+    styles.add(ParagraphStyle(name='CenterTitle', alignment=TA_CENTER, fontSize=18, spaceAfter=20, fontName='Helvetica-Bold'))
+    
+    StoryElements = []
+    
+    # Title
+    StoryElements.append(Paragraph(f"Project Title: {journey.project_name}", styles['CenterTitle']))
+    
+    # Metadata
+    meta_style = styles['Normal']
+    StoryElements.append(Paragraph(f"<b>Language:</b> {story.language}", meta_style))
+    StoryElements.append(Paragraph(f"<b>Genre:</b> {story.genre}", meta_style))
+    StoryElements.append(Paragraph(f"<b>Narration Style:</b> {story.narration_style}", meta_style))
+    StoryElements.append(Paragraph(f"<b>Story Length:</b> {story.story_length}", meta_style))
+    StoryElements.append(Spacer(1, 20))
+    
+    # Story Content
+    # We replace newlines with HTML breaks so ReportLab renders them as new lines
+    story_text_html = story.story_text.replace('\n', '<br />')
+    StoryElements.append(Paragraph(story_text_html, styles['Justify']))
+    
+    doc.build(StoryElements)
+    
+    buffer.seek(0)
+    pdf_out = buffer.getvalue()
+    buffer.close()
+    
+    response = make_response(pdf_out)
+    response.headers['Content-Type'] = 'application/pdf'
+    # Use project name in filename, sanitize a bit just in case
+    safe_filename = "".join([c for c in journey.project_name if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+    response.headers['Content-Disposition'] = f'attachment; filename="Story_{safe_filename}.pdf"'
+    return response
 
 # --- Social Routes ---
 

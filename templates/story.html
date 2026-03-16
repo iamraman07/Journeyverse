@@ -145,16 +145,21 @@
             </div>
 
             <div class="story-container">
-                <div class="story-header">
-                    <h2>Title: {{ journey.project_name }}</h2>
-                    <div class="story-meta">
-                        <span class="meta-item"><i class="fas fa-language"></i> Language: {{ story.language }}</span>
+                <div class="story-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h2>Title: {{ journey.project_name }}</h2>
+                        <div class="story-meta">
+                            <span class="meta-item"><i class="fas fa-language"></i> Language: {{ story.language }}</span>
                         <span class="meta-item"><i class="fas fa-film"></i> Genre: {{ story.genre }}</span>
                         <span class="meta-item"><i class="fas fa-user-edit"></i> Style: {{ story.narration_style
                             }}</span>
-                        <span class="meta-item"><i class="fas fa-ruler-horizontal"></i> Length: {{ story.story_length
-                            }}</span>
+                            <span class="meta-item"><i class="fas fa-ruler-horizontal"></i> Length: {{ story.story_length
+                                }}</span>
+                        </div>
                     </div>
+                    <a href="{{ url_for('download_story_pdf', story_id=story.id) }}" class="action-btn primary" style="white-space: nowrap;">
+                        <i class="fas fa-file-pdf"></i> Download as PDF
+                    </a>
                 </div>
 
                 <div class="story-content">
